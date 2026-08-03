@@ -62,7 +62,7 @@ export function connect(url) {
 
     ws.onopen = () => { Net.connected = true; resolve(); };
     ws.onerror = () => { if (!Net.connected) reject(new Error('ws error')); };
-    ws.onclose = () => {
+    ws.onclose = (e) => {
       const was = Net.connected;
       Net.connected = false;
       Net.isHost = false;
@@ -71,6 +71,7 @@ export function connect(url) {
       for (const r of welcomeResolvers) r.reject(new Error('closed'));
       welcomeResolvers = [];
       if (was) for (const fn of closeHandlers) fn();
+      if (typeof window !== 'undefined') console.log('[net] ws onclose code=' + (e && e.code) + ' was=' + was);
     };
     ws.onmessage = (ev) => {
       let m; try { m = JSON.parse(ev.data); } catch { return; }
