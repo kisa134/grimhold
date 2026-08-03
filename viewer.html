@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>GRIMHOLD — skinned character viewer</title>
+<style>
+  body { margin: 0; background: #1a1d26; color: #eee; font: 14px monospace; }
+  #label { position: fixed; top: 10px; left: 12px; white-space: pre; z-index: 2; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js",
+               "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="label">loading…</div>
+<script type="module">
+import * as THREE from 'three';
+import { initModels, buildWeaponVisual } from '/src/models.js';
+import {
+  initSkinned, SKINNED, MATS, buildSkinnedCharacter, severRegion,
+  enemyParts, presetParts, Animator,
+} from '/src/skinned.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1d26);
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 1.5, 7.2);
+camera.lookAt(0, 1.0, 0);
+scene.add(new THREE.HemisphereLight(0xbfae8a, 0x201a14, 1.2));
+const sun = new THREE.DirectionalLight(0xffe0b0, 1.8);
+sun.position.set(3, 6, 5);
+scene.add(sun);
+scene.add(new THREE.GridHelper(12, 12, 0x444, 0x333));
+
+const actors = [];
+
+function spawn(kind, x, animKey, opts = {}) {
+  const parts = enemyParts(kind);
+  const mat = kind === 'skeleton' ? MATS.bone() : kind === 'boss' ? MATS.boss() : MATS.atlas();
+  const c = buildSkinnedCharacter(parts, () => mat);
+  if (!c) return;
+  c.group.position.x = x;
+  scene.add(c.group);
+  const handR = c.bones.get('Hand_R');
+  const wkey = kind === 'bandit' ? 'dagger' : kind === 'skeleton' ? 'axe' : 'sword';
+  const w = buildWeaponVisual(wkey);
+  if (handR && w) {
+    w.scale.setScalar(100);
+    w.rotation.set(0, 0, -Math.PI / 2);
+    handR.add(w);
+  }
+  if (kind === 'knight' || kind === 'boss') {
+    const handL = c.bones.get('Hand_L');
+    const sh = buildWeaponVisual('shield');
+    if (handL && sh) { sh.scale.setScalar(100); sh.rotation.set(0, 0, Math.PI / 2); handL.add(sh); }
+  }
+  if (kind === 'skeleton') {
+    const headBone = c.bones.get('Head');
+    if (headBone) {
+      const eyes = new THREE.Mesh(new THREE.BoxGeometry(20, 5, 4),
+        new THREE.MeshBasicMaterial({ color: 0x66ff66 }));
+      eyes.position.set(0, 10, 9);
+      headBone.add(eyes);
+    }
+  }
+  if (opts.sever) severRegion(c, opts.sever);
+  const a = new Animator(c.root);
+  a.play(animKey);
+  actors.push(a);
+}
+
+Promise.all([initModels(), initSkinned()]).then(([mOk, sOk]) => {
+  const label = document.getElementById('label');
+  if (!sOk) { label.textContent = 'SKINNED FAILED — models:' + mOk; return; }
+  label.textContent =
+    'idle      run      atkHeavy    stagger   deathB(clamped)   no-head+no-R-arm\n' +
+    'knight    bandit   boss        skeleton  knight            bandit';
+  spawn('knight', -4.4, 'idle');
+  spawn('bandit', -2.6, 'run');
+  spawn('boss', -0.8, 'atkHeavy');
+  spawn('skeleton', 1.0, 'stagger');
+  spawn('knight', 2.8, 'deathB', {});
+  spawn('bandit', 4.6, 'walk', { sever: 'head' });
+  // death clamps at the last frame:
+  actors[4].playOnce('deathB', { clamp: true });
+});
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  for (const a of actors) a.update(dt);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GRIMHOLD</title>
+<style>
+  html, body { margin:0; padding:0; background:#050508; overflow:hidden; font-family:Georgia,'Times New Roman',serif; color:#d8cdb4; }
+  canvas { display:block; }
+  #hud { position:fixed; inset:0; pointer-events:none; display:none; z-index:2; }
+  .bar { position:absolute; left:24px; width:280px; background:#141419; border:1px solid #5a4a35; }
+  .bar > .fill { height:100%; width:100%; transition:width .08s linear; }
+  #hpbar { bottom:64px; height:14px; } #hpbar .fill { background:linear-gradient(#a01616,#6e0d0d); }
+  #stbar { bottom:44px; height:9px; }  #stbar .fill { background:linear-gradient(#3f7a3a,#2a5227); }
+  #weapon-name { position:absolute; left:24px; bottom:90px; font-size:14px; letter-spacing:1px; color:#c9b577; text-shadow:0 0 4px #000; }
+  #slots { position:absolute; left:24px; bottom:110px; font-size:12px; color:#8d8266; text-shadow:0 0 4px #000; }
+  #gold { position:absolute; right:24px; bottom:44px; font-size:17px; color:#e8c85a; text-shadow:0 0 6px #000; }
+  #gate-status { position:absolute; right:24px; bottom:70px; font-size:14px; letter-spacing:1px; text-shadow:0 0 6px #000; }
+  #crosshair { position:absolute; left:50%; top:50%; width:6px; height:6px; margin:-3px; border-radius:50%; background:rgba(216,205,180,.65); box-shadow:0 0 4px #000; transition:transform .12s ease-out, background .12s ease-out; }
+  #chargering { position:absolute; left:50%; top:50%; width:34px; height:34px; margin:-17px; border-radius:50%; --chg:0; opacity:0; transition:opacity .1s;
+    background:conic-gradient(#e8c85a calc(var(--chg) * 360deg), rgba(90,80,60,.22) 0deg);
+    -webkit-mask:radial-gradient(circle, transparent 11px, #000 12px);
+    mask:radial-gradient(circle, transparent 11px, #000 12px); }
+  #dmgnums { position:absolute; inset:0; overflow:hidden; }
+  .dmgnum { position:absolute; font-size:19px; font-weight:bold; text-shadow:0 0 5px #000, 0 2px 2px #000; animation:dmgfloat .85s forwards; pointer-events:none; }
+  .dmgnum.white { color:#f0ead8; }
+  .dmgnum.yellow { color:#ffd24d; font-size:23px; }
+  .dmgnum.red { color:#ff4030; font-size:26px; }
+  .dmgnum.gold { color:#ffcc33; font-size:30px; }
+  .dmgnum.graze { color:#9a9a9a; font-size:14px; }
+  .dmgnum.spark { color:#ffd870; font-size:17px; }
+  @keyframes dmgfloat { 0%{opacity:0; transform:translate(-50%,-50%) scale(.6);} 12%{opacity:1; transform:translate(-50%,-60%) scale(1.15);} 100%{opacity:0; transform:translate(-50%,-210%) scale(.9);} }
+  #killfeed { position:absolute; left:50%; top:32%; transform:translateX(-50%); text-align:center; pointer-events:none; width:700px; }
+  .killpop { font-size:46px; letter-spacing:9px; font-weight:bold; font-family:Georgia,'Times New Roman',serif; text-shadow:0 0 20px currentColor, 0 3px 0 #000; animation:killpop 1.35s forwards; }
+  @keyframes killpop { 0%{opacity:0; transform:scale(.35);} 14%{opacity:1; transform:scale(1.18);} 28%{transform:scale(1);} 72%{opacity:1;} 100%{opacity:0; transform:scale(1.06) translateY(-12px);} }
+  #kills { position:absolute; right:24px; bottom:96px; font-size:14px; letter-spacing:2px; color:#c01222; text-shadow:0 0 6px #000; }
+  #hitmarker { position:absolute; left:50%; top:50%; width:26px; height:26px; margin:-13px; opacity:0; font-size:22px; color:#ffe1e1; text-align:center; line-height:26px; text-shadow:0 0 6px #a00; }
+  #notify { position:absolute; left:50%; top:62%; transform:translateX(-50%); text-align:center; font-size:15px; width:600px; }
+  .note { margin:2px 0; text-shadow:0 0 6px #000; animation:fadeout 2.6s forwards; }
+  @keyframes fadeout { 0%{opacity:0; transform:translateY(8px);} 10%{opacity:1; transform:none;} 75%{opacity:1;} 100%{opacity:0;} }
+  #prompt { position:absolute; left:50%; top:56%; transform:translateX(-50%); font-size:16px; color:#e8dcb8; text-shadow:0 0 6px #000; letter-spacing:1px; }
+  #vignette { position:absolute; inset:0; box-shadow:inset 0 0 180px 60px rgba(120,0,0,0); }
+  #lowhp { position:absolute; inset:0; box-shadow:inset 0 0 160px 60px rgba(150,10,10,.5); opacity:0; transition:opacity .3s; }
+  #boss-name { position:absolute; left:50%; top:8%; transform:translateX(-50%); font-size:26px; letter-spacing:6px; color:#c01222; text-shadow:0 0 14px #400, 0 2px 0 #000; opacity:0; transition:opacity .4s; }
+  #bloodscreen { position:absolute; inset:0; overflow:hidden; }
+  #impactflash { position:absolute; inset:0; background:#fff; opacity:0; transition:opacity .06s linear; }
+  .blood-drop { position:absolute; border-radius:50% 50% 55% 45%; background:radial-gradient(circle at 35% 30%, rgba(190,20,25,.85), rgba(90,4,8,.9)); filter:blur(0.6px); animation:dripfade 1.4s forwards; }
+  @keyframes dripfade { 0%{opacity:1; transform:scale(.4);} 15%{opacity:1; transform:scale(1);} 70%{opacity:.8;} 100%{opacity:0; transform:translateY(14px) scale(1.1);} }
+  .screen { position:fixed; inset:0; display:none; background:radial-gradient(ellipse at center,#14101a 0%,#060509 80%); z-index:10; overflow:auto; }
+  .screen.active { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  h1 { font-size:58px; letter-spacing:14px; color:#b8122a; text-shadow:0 0 24px #500, 0 2px 0 #000; margin:0 0 4px; }
+  h2 { color:#c9b577; letter-spacing:3px; font-weight:normal; margin:8px 0; }
+  .panel { background:rgba(14,12,18,.85); border:1px solid #4a3a28; padding:14px 20px; margin:8px; max-width:960px; }
+  button { pointer-events:auto; background:#241c14; color:#d8cdb4; border:1px solid #6a5230; padding:9px 16px; font-family:inherit; font-size:14px; letter-spacing:1px; cursor:pointer; margin:4px; }
+  button:hover { background:#3a2c1c; border-color:#a8843f; }
+  button.selected { border-color:#e8c85a; background:#3a2c1c; box-shadow:0 0 10px rgba(232,200,90,.3); }
+  button.big { font-size:18px; padding:13px 34px; border-color:#a8843f; }
+  input { pointer-events:auto; background:#14100c; color:#d8cdb4; border:1px solid #6a5230; padding:8px 10px; font-family:inherit; font-size:13px; margin:4px; }
+  input:focus { outline:none; border-color:#a8843f; box-shadow:0 0 8px rgba(232,200,90,.25); }
+  .row { display:flex; flex-wrap:wrap; justify-content:center; }
+  .card { width:220px; margin:6px; padding:12px; border:1px solid #4a3a28; background:rgba(14,12,18,.85); text-align:center; }
+  .card h3 { margin:4px 0; color:#e8c85a; letter-spacing:2px; }
+  .small { font-size:13px; color:#9a8f78; }
+  #pause-hint { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.75); color:#d8cdb4; font-size:22px; letter-spacing:3px; z-index:5; cursor:pointer; }
+  #debugline { position:absolute; left:50%; bottom:132px; transform:translateX(-50%); font-size:13px; color:#9fb7cf; text-shadow:0 0 5px #000; letter-spacing:1px; opacity:.9; }
+  #panel-hint { position:absolute; left:24px; top:20px; font-size:12px; color:#6a6250; text-shadow:0 0 4px #000; letter-spacing:1px; }
+  /* ---- character creator ---- */
+  #screen-creator { z-index:11; }
+  #screen-creator.active { display:block; }
+  .creator-wrap { display:flex; width:100%; height:100%; }
+  .creator-left { width:470px; min-width:400px; height:100%; overflow-y:auto; padding:16px 20px 30px; background:rgba(9,7,12,.94); border-right:1px solid #3a2c1c; box-shadow:8px 0 30px rgba(0,0,0,.6); }
+  .creator-right { flex:1; position:relative; background:radial-gradient(ellipse at 50% 42%, #1a1424 0%, #0a0810 55%, #050408 100%); }
+  #creator-canvas { position:absolute; inset:0; width:100%; height:100%; cursor:grab; }
+  #creator-canvas:active { cursor:grabbing; }
+  .creator-hint { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); font-size:12px; letter-spacing:2px; color:#6a6250; text-shadow:0 0 4px #000; pointer-events:none; }
+  .cr-h1 { font-size:30px; letter-spacing:8px; color:#b8122a; text-shadow:0 0 18px #500, 0 2px 0 #000; margin:4px 0 2px; }
+  .cr-h2 { color:#c9b577; letter-spacing:2px; font-size:13px; margin-bottom:14px; }
+  .cr-section { margin-bottom:16px; }
+  .cr-title { color:#c9b577; letter-spacing:3px; font-size:12px; border-bottom:1px solid #4a3a28; padding-bottom:4px; margin-bottom:8px; }
+  .cr-row { display:flex; align-items:center; justify-content:space-between; margin:2px 0; gap:4px; }
+  .cr-label { color:#9a8f78; font-size:12px; letter-spacing:1px; width:132px; flex:none; }
+  .cr-val { color:#e8dcb8; font-size:12px; flex:1; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cr-arrow { padding:2px 9px; font-size:12px; margin:0 1px; flex:none; }
+  .cr-arrow:disabled { opacity:.35; cursor:default; }
+  .cr-pool { font-size:13px; letter-spacing:2px; margin:4px 0 8px; }
+  .cr-derived { background:rgba(20,16,24,.8); border:1px solid #3a2c1c; padding:8px 10px; font-size:12px; color:#9a8f78; line-height:1.7; margin-top:8px; }
+  .cr-name { width:60%; font-size:15px; }
+  .cr-buttons { margin-top:18px; display:flex; flex-wrap:wrap; gap:4px; }
+  .cr-error { color:#ff6040; font-size:12px; margin-top:8px; min-height:16px; }
+  .cr-preset.selected, .cr-weapon.selected { border-color:#e8c85a; background:#3a2c1c; box-shadow:0 0 10px rgba(232,200,90,.3); }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="weapon-name"></div>
+  <div id="slots"></div>
+  <div class="bar" id="hpbar"><div class="fill"></div></div>
+  <div class="bar" id="stbar"><div class="fill"></div></div>
+  <div id="gate-status"></div>
+  <div id="gold"></div>
+  <div id="crosshair"></div>
+  <div id="chargering"></div>
+  <div id="dmgnums"></div>
+  <div id="killfeed"></div>
+  <div id="kills"></div>
+  <div id="hitmarker">&#10005;</div>
+  <div id="prompt"></div>
+  <div id="notify"></div>
+  <div id="vignette"></div>
+  <div id="lowhp"></div>
+  <div id="boss-name">&#9876; GATE WARDEN &#9876;</div>
+  <div id="bloodscreen"></div>
+  <div id="impactflash"></div>
+  <div id="debugline"></div>
+  <div id="flow-meter" style="position:absolute;left:18px;bottom:64px;display:none;font:12px monospace;color:#9fe;letter-spacing:2px;text-shadow:0 0 6px #000;">FLOW <span id="flow-segs"></span></div>
+  <div id="panel-hint">` TUNING</div>
+</div>
+<div id="pause-hint">PAUSED &mdash; CLICK TO RESUME</div>
+<div class="screen" id="screen-loadout"></div>
+<div class="screen" id="screen-result"></div>
+<div class="screen" id="screen-creator"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

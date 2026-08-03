@@ -1,0 +1,19 @@
+{
+  "name": "grimhold",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "dev:lan": "vite --host",
+    "build": "vite build",
+    "mp:server": "node server/server.mjs"
+  },
+  "dependencies": {
+    "three": "^0.160.1",
+    "ws": "^8.21.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

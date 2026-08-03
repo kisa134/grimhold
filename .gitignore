@@ -1,0 +1,11 @@
+node_modules/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+.vite/
+dist/
+.asset-tmp/
+*.local
+npm-debug.log*

@@ -1,0 +1,443 @@
+// ui.js — HUD updates, notifications, hitmarkers, loadout & result screens (DOM)
+import { PRESETS, getMeta, setEquip, deriveStats } from './meta.js';
+import { weaponStats } from './weapons.js';
+import {
+  startChampionPreview, stopChampionPreview, cycleChampion, getChampionId,
+} from './champion.js';
+import * as MP from './mp.js';
+import * as Creator from './creator.js';
+import { getHero, ARCHETYPES, totalStats } from './hero.js';
+import { CFG } from './config.js';
+
+let game = null;
+let els = {};
+let selectedPreset = 'knight';
+
+const CONTROLS = 'WASD move &nbsp;|&nbsp; LMB tap = quick slash (chains 1-2-3) &nbsp;·&nbsp; <b>HOLD LMB to charge</b> — flick &larr;/&rarr;/&darr;/&uarr; for slash/overhead/stab, release to strike · flick AGAIN early to MORPH &nbsp;|&nbsp; <b>RMB tap = PARRY</b> · RMB hold = block (watch stamina — at 0 your guard BREAKS) · RMB mid-windup = FEINT &nbsp;|&nbsp; mirror an incoming strike with your own to CHAMBER · sway the mouse with/against the swing to ACCEL/DRAG &nbsp;|&nbsp; G kick &nbsp;|&nbsp; charged attack a staggered enemy to EXECUTE &nbsp;|&nbsp; Shift sprint &nbsp;|&nbsp; E interact &nbsp;|&nbsp; M mute &nbsp;|&nbsp; 1/2/3 weapons &nbsp;|&nbsp; ` (backtick) tuning panel';
+
+export function initUI(g) {
+  game = g;
+  for (const id of ['hud', 'weapon-name', 'slots', 'hpbar', 'stbar', 'gate-status', 'gold',
+    'hitmarker', 'prompt', 'notify', 'vignette', 'lowhp', 'pause-hint', 'boss-name', 'bloodscreen',
+    'crosshair', 'dmgnums', 'killfeed', 'kills', 'chargering', 'debugline',
+    'screen-loadout', 'screen-result',
+    'flow-meter']) {
+    els[id] = document.getElementById(id);
+  }
+  els['impactflash'] = document.getElementById('impactflash');
+}
+
+export function showHUD(on) {
+  els['hud'].style.display = on ? 'block' : 'none';
+}
+
+export function updateHUD() {
+  const p = game.player;
+  if (!p) return;
+  els['hpbar'].firstElementChild.style.width = Math.max(0, (p.hp / p.stats.maxHp) * 100) + '%';
+  els['stbar'].firstElementChild.style.width = Math.max(0, (p.stamina / p.stats.maxStamina) * 100) + '%';
+  const ws = p.wstats;
+  els['weapon-name'].textContent = ws.itemName + (p.blocking ? '  [BLOCKING]' : '');
+  els['weapon-name'].style.color = ws.color;
+  els['slots'].textContent = p.slots.map((s, i) =>
+    `${i + 1}:${i === p.slot ? '[' + weaponStats(s).itemName + ']' : weaponStats(s).itemName}`).join('  ');
+  els['gold'].textContent = game.training
+    ? `DUMMY KILLS ${game.runKills}`
+    : `GOLD ${game.runGold}   LOOT ${game.lootValue()}`;
+  els['kills'].textContent = game.runKills > 0 && !game.training ? `KILLS ${game.runKills}` : '';
+  const gs = els['gate-status'];
+  if (game.training) {
+    gs.textContent = 'TRAINING — ` tune · Esc leave';
+    gs.style.color = '#6fb7ff';
+  } else if (game.gateOpen) {
+    gs.textContent = 'GATE OPEN — EXTRACT!';
+    gs.style.color = '#6fe86f';
+  } else {
+    gs.textContent = `GATE SEALED — loot ${game.lootValue()}/${game.gateThreshold}`;
+    gs.style.color = '#e86f6f';
+  }
+  els['lowhp'].style.opacity = p.hp < p.stats.maxHp * 0.3 ? String(0.7 + 0.3 * Math.sin(game.time * 6)) : '0';
+  // boss nameplate
+  els['boss-name'].style.opacity = game.bossName ? '1' : '0';
+  // charge ring around the crosshair while holding LMB
+  const a = p.attack;
+  const charging = a.phase === 'windup';
+  const cr = els['chargering'];
+  if (cr) {
+    cr.style.opacity = charging ? '0.95' : '0';
+    if (charging) cr.style.setProperty('--chg', a.charge.toFixed(3));
+  }
+}
+
+export function notify(text, color) {
+  const d = document.createElement('div');
+  d.className = 'note';
+  d.textContent = text;
+  d.style.color = color || '#d8cdb4';
+  els['notify'].appendChild(d);
+  setTimeout(() => d.remove(), 2600);
+  while (els['notify'].children.length > 5) els['notify'].firstChild.remove();
+}
+
+export function hitmarker(killed, gold) {
+  els['hitmarker'].style.opacity = '1';
+  els['hitmarker'].style.color = killed ? '#ff3030' : '#ffe1e1';
+  els['hitmarker'].style.transform = killed ? 'scale(1.5)' : 'scale(1)';
+  clearTimeout(hitmarker._t);
+  hitmarker._t = setTimeout(() => { els['hitmarker'].style.opacity = '0'; }, 120);
+  // crosshair pulses too — gold on headshot/execute, red on kills/hits
+  const ch = els['crosshair'];
+  ch.style.background = gold ? '#ffd24d' : (killed ? '#ff3030' : '#d83838');
+  ch.style.transform = gold ? 'scale(2.6)' : 'scale(1.9)';
+  clearTimeout(hitmarker._ct);
+  hitmarker._ct = setTimeout(() => {
+    ch.style.background = 'rgba(216,205,180,.65)';
+    ch.style.transform = 'scale(1)';
+  }, 130);
+}
+
+// Floating damage number at a screen-space position (percent coords).
+// Optional zone label ("42 HEAD") used by the training room.
+export function damageNumber(x, y, dmg, cls, zone) {
+  const d = document.createElement('div');
+  d.className = 'dmgnum ' + cls;
+  d.textContent = zone ? `${dmg} ${zone}` : dmg;
+  d.style.left = x + '%';
+  d.style.top = y + '%';
+  els['dmgnums'].appendChild(d);
+  setTimeout(() => d.remove(), 900);
+  while (els['dmgnums'].children.length > 14) els['dmgnums'].firstChild.remove();
+}
+
+// Live debug readout line (last swing direction / charge / hit zone / damage).
+export function debugLine(text) {
+  const el = els['debugline'];
+  if (!el) return;
+  el.textContent = text;
+}
+
+// Big center-screen arcade popup for notable events.
+export function killPopup(text, color) {
+  const d = document.createElement('div');
+  d.className = 'killpop';
+  d.textContent = text;
+  d.style.color = color || '#ff2030';
+  els['killfeed'].appendChild(d);
+  setTimeout(() => d.remove(), 1400);
+  while (els['killfeed'].children.length > 3) els['killfeed'].firstChild.remove();
+}
+
+export function damageFlash() {
+  els['vignette'].style.boxShadow = 'inset 0 0 180px 80px rgba(160,10,10,0.55)';
+  clearTimeout(damageFlash._t);
+  damageFlash._t = setTimeout(() => {
+    els['vignette'].style.boxShadow = 'inset 0 0 180px 60px rgba(120,0,0,0)';
+  }, 140);
+}
+
+// Bright white-gold flash on a successful parry.
+export function parryFlash() {
+  els['vignette'].style.boxShadow = 'inset 0 0 190px 90px rgba(255,230,150,0.6)';
+  clearTimeout(parryFlash._t);
+  parryFlash._t = setTimeout(() => {
+    els['vignette'].style.boxShadow = 'inset 0 0 180px 60px rgba(120,0,0,0)';
+  }, 200);
+}
+
+// Floating posture bar over an enemy's head. Called every frame for each
+// living enemy. Reuses the same world->screen projection as main.js
+// (enemy.pos is a THREE.Vector3; project through game.camera). One DOM element
+// is created per enemy and reused across frames.
+export function postureBar(enemy) {
+  if (!enemy || enemy.dead || enemy.dummy) {
+    // cleanup any leftover bar element when the enemy goes down
+    if (enemy && enemy._postureEl) {
+      try { enemy._postureEl.remove(); } catch (e) {}
+      enemy._postureEl = null;
+      return;
+    }
+    return;
+  }
+  const cam = game && game.camera;
+  if (!cam) return;
+  // create the bar element once, reuse it
+  let el = enemy._postureEl;
+  if (!el) {
+    el = document.createElement('div');
+    el.style.cssText = 'position:absolute;width:70px;height:5px;border:1px solid rgba(0,0,0,.6);'
+      + 'background:rgba(0,0,0,.45);transform:translate(-50%,-50%);pointer-events:none;'
+      + 'box-shadow:0 0 4px #000;';
+    const fill = document.createElement('div');
+    fill.style.cssText = 'height:100%;width:100%;transition:width .08s linear;';
+    el.appendChild(fill);
+    el._fill = fill;
+    const hud = (els && els['hud']) || document.getElementById('hud') || document.body;
+    hud.appendChild(el);
+    enemy._postureEl = el;
+  }
+  const max = enemy.postureMax || 1;
+  const cur = Math.max(0, Math.min(max, enemy.posture || 0));
+  const frac = cur / max;
+  // project head position to screen
+  const ndc = enemy.pos.clone().setY(enemy.pos.y + 2.0).project(cam);
+  if (ndc.z > 1) {            // behind the camera — hide
+    el.style.display = 'none';
+    return;
+  }
+  const x = (ndc.x * 0.5 + 0.5) * 100;
+  const y = (-ndc.y * 0.5 + 0.5) * 100;
+  el.style.display = 'block';
+  el.style.left = x + '%';
+  el.style.top = y + '%';
+  // color: yellow under 0.7, red at/above; postureDown => red + blink
+  let color, opacity = 1;
+  if (enemy.postureDown) {
+    color = '#ff4030';
+    opacity = 0.35 + 0.45 * (0.5 + 0.5 * Math.sin((game ? game.time : performance.now() / 1000) * 14));
+  } else {
+    color = frac >= 0.7 ? '#ff4030' : '#ffd24a';
+  }
+  el._fill.style.width = (frac * 100) + '%';
+  el._fill.style.background = color;
+  el.style.opacity = String(opacity);
+}
+
+// Flow meter (combo flow) along the bottom-left of the HUD. flow is the number
+// of filled segments out of CFG.combat.flowMax. Hidden when flow<=0. Reuses the
+// #flow-meter / #flow-segs DOM added to index.html.
+export function flowMeter(flow) {
+  const meter = els && els['flow-meter'];
+  if (!meter) return;
+  const segs = meter.querySelector('#flow-segs') || document.getElementById('flow-segs');
+  if (!segs) return;
+  const f = Math.max(0, Math.floor(flow || 0));
+  if (f <= 0) { meter.style.display = 'none'; return; }
+  const max = (CFG.combat && CFG.combat.flowMax) || 4;
+  const filled = '█'.repeat(Math.min(f, max));
+  const empty = '░'.repeat(Math.max(0, max - Math.min(f, max)));
+  segs.textContent = filled + empty;
+  segs.style.color = '#66ffcc';
+  meter.style.display = 'block';
+}
+
+// Fading blood droplets spattered across the "camera lens" (heavier = more).
+export function bloodSplatter(strength = 1) {
+  const n = Math.min(8, 2 + Math.round(strength * 2));
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.className = 'blood-drop';
+    const s = 6 + Math.random() * 26 * strength;
+    d.style.width = d.style.height = s + 'px';
+    d.style.left = (15 + Math.random() * 70) + '%';
+    d.style.top = (10 + Math.random() * 75) + '%';
+    els['bloodscreen'].appendChild(d);
+    setTimeout(() => d.remove(), 900 + Math.random() * 600);
+  }
+}
+
+// Brief fullscreen white impact flash (anime hit feel — heavy connects,
+// parries). Subtle: capped opacity, ~60-90ms.
+export function impactFlash(strength = 0.35, ms = 80) {
+  const el = els['impactflash'];
+  if (!el) return;
+  el.style.opacity = String(Math.min(0.5, strength));
+  clearTimeout(impactFlash._t);
+  impactFlash._t = setTimeout(() => { el.style.opacity = '0'; }, ms);
+}
+
+export function setPrompt(t) {
+  els['prompt'].textContent = t || '';
+}
+
+export function showPause(on) {
+  els['pause-hint'].style.display = on ? 'flex' : 'none';
+}
+
+// ---------------- screens ----------------
+
+function hideAllScreens() {
+  els['screen-loadout'].classList.remove('active');
+  els['screen-result'].classList.remove('active');
+  Creator.hide();
+}
+
+export function showLoadout() {
+  hideAllScreens();
+  showHUD(false);
+  const meta = getMeta();
+  const hero = getHero();
+  const s = els['screen-loadout'];
+
+  const presetCards = Object.values(PRESETS).map(p => {
+    const st = p.stats;
+    const overridden = hero ? ' <span style="color:#9a8f78">(hero overrides)</span>' : '';
+    return `<div class="card">
+      <h3>${p.name}</h3>
+      <div class="small">${p.desc}</div>
+      <div class="small" style="margin-top:8px">
+        VIG ${st.vigor} &nbsp; STR ${st.strength} &nbsp; AGI ${st.agility} &nbsp; RES ${st.resolve}<br/>
+        Weapon: ${weaponStats(p.weapon).name}${p.armor ? '<br/>Armor: ' + p.armor.name + ' (+' + p.armor.hp + ' HP' + (p.armor.hp >= 20 ? ', HEAVY: -8% speed, +stagger resist' : '') + ')' : ''}${overridden}
+      </div>
+      <button data-preset="${p.key}" class="${p.key === selectedPreset ? 'selected' : ''}">CHOOSE</button>
+    </div>`;
+  }).join('');
+
+  // champion panel: the CREATED HERO when one exists, else the preset wardrobe
+  const championPanel = hero ? (() => {
+    const hst = totalStats(hero);
+    return `
+      <div style="color:#c9b577;letter-spacing:2px">YOUR HERO</div>
+      <canvas id="champion-view" style="width:280px;height:330px;max-width:80vw"></canvas>
+      <div class="row" style="justify-content:center;align-items:center;gap:14px">
+        <span id="champ-name" style="color:#e8c85a;font-size:18px;letter-spacing:2px">${hero.name}</span>
+      </div>
+      <div class="small">${ARCHETYPES[hero.archetype].label} · ${weaponStats(hero.weapon).name} ·
+        VIG ${hst.vigor} STR ${hst.strength} AGI ${hst.agility} RES ${hst.resolve}</div>
+      <button class="big" id="btn-create" style="margin-top:8px">EDIT IN CHARACTER CREATOR</button>`;
+  })() : `
+      <div style="color:#c9b577;letter-spacing:2px">YOUR CHAMPION — SYNTY WARDROBE</div>
+      <canvas id="champion-view" style="width:280px;height:330px;max-width:80vw"></canvas>
+      <div class="row" style="justify-content:center;align-items:center;gap:14px">
+        <button id="champ-prev">◀ PREV</button>
+        <span id="champ-name" style="color:#e8c85a;min-width:110px">PRESET #${getChampionId()}</span>
+        <button id="champ-next">NEXT ▶</button>
+      </div>
+      <div class="small" id="champ-hint">Browse official Synty armor presets — or forge your own.</div>
+      <button class="big" id="btn-create" style="margin-top:8px;border-color:#a8843f">CREATE CHARACTER</button>`;
+
+  const weapons = meta.stash.filter(i => i.kind === 'weapon');
+  const armors = meta.stash.filter(i => i.kind === 'armor');
+  const relics = meta.stash.filter(i => i.kind === 'relic');
+  const stashHtml = meta.stash.length === 0
+    ? '<div class="small">Your stash is empty. Extract to keep what you find.</div>'
+    : `<div class="row">${weapons.map(w =>
+        `<button data-eqw="${w.id}" class="${meta.equipWeaponId === w.id ? 'selected' : ''}">${w.name} (${w.value}g)</button>`).join('')}
+       ${armors.map(a =>
+        `<button data-eqa="${a.id}" class="${meta.equipArmorId === a.id ? 'selected' : ''}">${a.name} +${a.hp}HP${a.hp >= 20 ? ' (heavy: -8% spd, +stagger res)' : ''} (${a.value}g)</button>`).join('')}
+       ${relics.map(r => `<button disabled>${r.name} (${r.value}g) — sold at extraction</button>`).join('')}</div>
+       <div class="small">Click a stash weapon/armor to equip it for the next run (overrides preset gear). Click again to unequip.</div>`;
+
+  s.innerHTML = `
+    <h1>GRIMHOLD</h1>
+    <h2>A MEDIEVAL LOOT-EXTRACTION SLASHER</h2>
+    <div class="row">${presetCards}</div>
+    <div class="panel" style="text-align:center">
+      ${championPanel}
+    </div>
+    <div class="panel" style="text-align:center">
+      <div style="color:#e8c85a;font-size:18px">VAULT GOLD: ${meta.gold}</div>
+      <div style="margin-top:8px">${stashHtml}</div>
+    </div>
+    <button class="big" id="btn-start">ENTER GRIMHOLD</button>
+    <button class="big" id="btn-training" style="border-color:#5a7a9a">TRAINING</button>
+    <div class="panel" style="text-align:center">
+      <div style="color:#c9b577;letter-spacing:2px">ONLINE RAID (LAN)</div>
+      <div class="row" style="justify-content:center;align-items:center;margin-top:6px">
+        <input id="mp-addr" style="width:230px" value="${localStorage.getItem('grimhold_mp_addr') || `ws://${location.hostname}:8787`}" title="raid server address"/>
+        <input id="mp-room" style="width:80px" value="${localStorage.getItem('grimhold_mp_room') || 'keep'}" title="room"/>
+        <input id="mp-name" style="width:120px" placeholder="your name" value="${localStorage.getItem('grimhold_mp_name') || (hero ? hero.name : '')}" title="name"/>
+      </div>
+      <button id="btn-mp">HOST + JOIN RAID</button>
+      <div class="small" id="mp-status">${MP.isMp()
+        ? `<span style="color:#6fb7ff">Connected — ${MP.isMpHost() ? 'you are the HOST' : 'joined the host'} — press ENTER GRIMHOLD to descend together.</span>`
+        : 'One raider runs <b>npm run mp:server</b>; everyone joins the same address + room. The first raider in the room hosts the enemies.'}</div>
+    </div>
+    <div class="small" style="margin-top:10px">${CONTROLS}</div>
+    <div class="small">Open the extraction gate by gathering ${game.gateThreshold} loot value. Die and you lose everything you carry.</div>
+  `;
+  s.classList.add('active');
+
+  // champion constructor wiring (live 3D preview; retries while assets stream in)
+  const champCanvas = document.getElementById('champion-view');
+  const champName = document.getElementById('champ-name');
+  const tryPreview = () => {
+    if (!document.body.contains(champCanvas)) return;
+    if (!startChampionPreview(champCanvas)) setTimeout(tryPreview, 800);
+  };
+  tryPreview();
+  const champPrev = document.getElementById('champ-prev');
+  if (champPrev) {
+    champPrev.addEventListener('click', () => {
+      champName.textContent = `PRESET #${cycleChampion(-1) || getChampionId()}`;
+    });
+    document.getElementById('champ-next').addEventListener('click', () => {
+      champName.textContent = `PRESET #${cycleChampion(1) || getChampionId()}`;
+    });
+  }
+  document.getElementById('btn-create').addEventListener('click', () => {
+    stopChampionPreview();
+    Creator.open(() => showLoadout());
+  });
+
+  s.querySelectorAll('[data-preset]').forEach(b =>
+    b.addEventListener('click', () => { selectedPreset = b.dataset.preset; showLoadout(); }));
+  s.querySelectorAll('[data-eqw]').forEach(b =>
+    b.addEventListener('click', () => {
+      const m = getMeta();
+      setEquip(m.equipWeaponId === b.dataset.eqw ? null : b.dataset.eqw, m.equipArmorId);
+      showLoadout();
+    }));
+  s.querySelectorAll('[data-eqa]').forEach(b =>
+    b.addEventListener('click', () => {
+      const m = getMeta();
+      setEquip(m.equipWeaponId, m.equipArmorId === b.dataset.eqa ? null : b.dataset.eqa);
+      showLoadout();
+    }));
+  document.getElementById('btn-start').addEventListener('click', () => game.startRun(selectedPreset));
+  document.getElementById('btn-training').addEventListener('click', () => game.startTraining(selectedPreset));
+
+  // ONLINE RAID (LAN) wiring
+  document.getElementById('btn-mp').addEventListener('click', () => {
+    const addr = document.getElementById('mp-addr').value.trim() || `ws://${location.hostname}:8787`;
+    const room = document.getElementById('mp-room').value.trim() || 'keep';
+    const name = document.getElementById('mp-name').value.trim()
+      || ('raider' + Math.floor(Math.random() * 100));
+    localStorage.setItem('grimhold_mp_addr', addr);
+    localStorage.setItem('grimhold_mp_room', room);
+    localStorage.setItem('grimhold_mp_name', name);
+    const st = document.getElementById('mp-status');
+    st.textContent = 'Connecting to the raid server...';
+    st.style.color = '#9a8f78';
+    MP.join(addr, room, name).then((w) => {
+      st.innerHTML = `Connected to <b>${addr}</b>, room <b>${room}</b> — ` +
+        (w.host ? 'you are the HOST' : 'joined the host') +
+        ' — press ENTER GRIMHOLD to descend together.';
+      st.style.color = '#6fb7ff';
+    }).catch(() => {
+      st.textContent = 'Could not reach the raid server. Is npm run mp:server running?';
+      st.style.color = '#ff6040';
+    });
+  });
+}
+
+export function showResult(extracted, lines) {
+  hideAllScreens();
+  showHUD(false);
+  const meta = getMeta();
+  const s = els['screen-result'];
+  s.innerHTML = `
+    <h1 style="color:${extracted ? '#4da84d' : '#b8122a'}">${extracted ? 'EXTRACTED' : 'SLAIN'}</h1>
+    ${extracted ? '' : '<canvas id="champion-dead" style="width:280px;height:300px"></canvas>'}
+    <div class="panel" style="text-align:center;min-width:420px">
+      ${lines.map(l => `<div style="margin:4px 0">${l}</div>`).join('')}
+      <div style="margin-top:10px;color:#e8c85a">VAULT GOLD: ${meta.gold}</div>
+    </div>
+    <button class="big" id="btn-return">RETURN TO THE VAULT</button>
+  `;
+  s.classList.add('active');
+  if (!extracted) {
+    // your fallen champion, in the armor you chose
+    const dc = document.getElementById('champion-dead');
+    const tryDead = () => {
+      if (!document.body.contains(dc)) return;
+      if (!startChampionPreview(dc, { death: true })) setTimeout(tryDead, 800);
+    };
+    tryDead();
+  }
+  document.getElementById('btn-return').addEventListener('click', () => showLoadout());
+}
+
+export function hideScreens() {
+  stopChampionPreview();
+  hideAllScreens();
+}

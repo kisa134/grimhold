@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>grip test 2</title>
+<style>html,body{margin:0;background:#111}canvas{display:block}</style></head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { initSkinned, SKINNED, MATS, buildSkinnedCharacter, enemyParts, Animator, CLIPS } from '/src/skinned.js';
+import { initModels, buildWeaponVisual } from '/src/models.js';
+
+// left: sword with chosen grip across anim phases; right: shield candidates
+const SWORD_POSES = [
+  ['idle', 0.4], ['atkA', 0.35], ['atkA', 0.6], ['block', 0.5],
+];
+const SHIELD_CANDS = [
+  [Math.PI / 2, 0, Math.PI / 2],
+  [0, 0, Math.PI / 2],
+  [0, 0, -Math.PI / 2],
+  [-Math.PI / 2, 0, -Math.PI / 2],
+];
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a22);
+scene.add(new THREE.HemisphereLight(0xbfb49a, 0x201a14, 1.2));
+const key = new THREE.DirectionalLight(0xffd9a0, 1.6);
+key.position.set(2, 4, 3);
+scene.add(key);
+
+await initModels();
+await initSkinned();
+const parts = enemyParts('knight');
+
+function spawnChar(x, markerCount) {
+  const c = buildSkinnedCharacter(parts, () => MATS.atlas());
+  c.group.position.x = x;
+  scene.add(c.group);
+  for (let b = 0; b < markerCount; b++) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.09),
+      new THREE.MeshBasicMaterial({ color: 0xff4444 }));
+    m.position.set(x - 0.4 + b * 0.13, 0.05, 0.55);
+    scene.add(m);
+  }
+  return c;
+}
+
+SWORD_POSES.forEach(([clip, t], i) => {
+  const c = spawnChar(i * 1.4 - 2.1, i + 1);
+  const anim = new Animator(c.root);
+  anim.play(clip);
+  anim.update(CLIPS[clip].duration * t);
+  const handR = c.bones.get('Hand_R');
+  const wv = buildWeaponVisual('sword');
+  if (handR && wv) {
+    wv.scale.setScalar(100);
+    wv.rotation.set(Math.PI / 2, 0, Math.PI / 2);
+    handR.add(wv);
+  }
+});
+
+SHIELD_CANDS.forEach((rot, i) => {
+  const c = spawnChar(2.5 + i * 1.4, i + 1);
+  const anim = new Animator(c.root);
+  anim.play('idle');
+  anim.update(CLIPS.idle.duration * 0.4);
+  const handL = c.bones.get('Hand_L');
+  const sh = buildWeaponVisual('shield');
+  if (handL && sh) {
+    sh.scale.setScalar(100);
+    sh.rotation.set(rot[0], rot[1], rot[2]);
+    handL.add(sh);
+  }
+});
+
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
+cam.position.set(0.6, 1.5, 8.5);
+cam.lookAt(0.6, 1.0, 0);
+renderer.render(scene, cam);
+console.log('grip2: rendered');
+</script>
+</body>
+</html>
