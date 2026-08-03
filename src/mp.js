@@ -12,7 +12,7 @@
 // Friendly fire: OFF. Extraction: individual.
 import * as THREE from 'three';
 import {
-  Net, connect, on, onClose, send, toHost, fromHost, sendEvent,
+  Net, connect, join as netJoin, createLobby as netCreate, joinLobby as netJoinLobby, on, onClose, send, toHost, fromHost, sendEvent,
 } from './net.js';
 import { RemoteAvatar, EnemyProxy } from './remotes.js';
 import { weaponStats } from './weapons.js';
@@ -142,6 +142,7 @@ export function initMp(g) {
 // the host never drops when entering a room.
 function ensureConnected(addr) {
   if (Net.ws && Net.ws.readyState === 1) return Promise.resolve();
+  Net.ws = null;
   return connect(addr);
 }
 
@@ -158,7 +159,7 @@ function joinMeta() {
 }
 
 export function join(addr, room, name) {
-  return ensureConnected(addr).then(() => Net.join(room, name, joinMeta())).then((w) => {
+  return ensureConnected(addr).then(() => netJoin(room, name, joinMeta())).then((w) => {
     for (const mem of w.members) {
       if (mem.id === w.id) continue;
       if (!shims.has(mem.id)) shims.set(mem.id, mkShim(mem.id));
@@ -172,7 +173,7 @@ export function join(addr, room, name) {
 
 // Create a named lobby (you become host). Lobby id is generated server-side.
 export function createLobby(addr, lobbyName, name) {
-  return ensureConnected(addr).then(() => Net.createLobby(lobbyName, name, joinMeta())).then((w) => {
+  return ensureConnected(addr).then(() => netCreate(lobbyName, name, joinMeta())).then((w) => {
     game.notify(`LOBBY "${lobbyName}" created — you are the HOST`, '#6fb7ff');
     return w;
   });
@@ -180,7 +181,7 @@ export function createLobby(addr, lobbyName, name) {
 
 // Join an existing lobby by id.
 export function joinLobby(addr, lobbyId, name) {
-  return ensureConnected(addr).then(() => Net.joinLobby(lobbyId, name, joinMeta())).then((w) => {
+  return ensureConnected(addr).then(() => netJoinLobby(lobbyId, name, joinMeta())).then((w) => {
     game.notify(w.host ? 'ONLINE RAID — you are the HOST' : 'ONLINE RAID — joined the host', '#6fb7ff');
     return w;
   });

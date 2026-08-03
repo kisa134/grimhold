@@ -6,7 +6,7 @@ import {
 } from './champion.js';
 import * as MP from './mp.js';
 import * as Creator from './creator.js';
-import { connect, on, Net } from './net.js';
+import { on, lobbyList } from './net.js';
 import { getHero, ARCHETYPES, totalStats } from './hero.js';
 import { CFG } from './config.js';
 
@@ -391,9 +391,9 @@ export function showLobby() {
   if (!showLobby._wired) {
     showLobby._wired = true;
     on('lobbyList', (m) => { if (showLobby._render) showLobby._render(m.lobbies || []); });
-    on('lobbyAdd', () => Net.lobbyList());
-    on('lobbyUpdate', () => Net.lobbyList());
-    on('lobbyRemove', () => Net.lobbyList());
+    on('lobbyAdd', () => lobbyList());
+    on('lobbyUpdate', () => lobbyList());
+    on('lobbyRemove', () => lobbyList());
   }
 
   const renderList = (lobbies) => {
@@ -444,7 +444,7 @@ export function showLobby() {
   `;
   s.classList.add('active');
 
-  MP.openLobby(relayAddr).then(() => Net.lobbyList()).catch(() => {
+  MP.openLobby(relayAddr).then(() => lobbyList()).catch(() => {
     const st = document.getElementById('lobby-status');
     if (st) { st.textContent = 'Could not reach the raid server. Is it running?'; st.style.color = '#ff6040'; }
   });
