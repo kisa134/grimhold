@@ -172,8 +172,8 @@ export const DEFAULTS = {
   },
   // world — labyrinth-castle atmosphere + map knobs (panel auto-generates UI)
   world: {
-    fogDensity: 0.042, fogColor: 0x07070f,
-    moonColor: 0x9fd8b8, moonIntensity: 0.32, ambientIntensity: 0.5,
+    fogDensity: 0.016, fogColor: 0x14141e,
+    moonColor: 0xbfe8d8, moonIntensity: 0.62, ambientIntensity: 1.05,
     emissive: 1.1,            // flame/window emissive strength on the kit atlas
     lightBudget: 27,          // real PointLights (rest of the flames are emissive-only)
     wisps: true,              // glowing trail to the extraction gate once open

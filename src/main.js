@@ -61,7 +61,7 @@ scene.fog = new THREE.FogExp2(CFG.world.fogColor, CFG.world.fogDensity);
 
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.05, 120);
 scene.add(camera);
-const ambient = new THREE.AmbientLight(0x1e1e30, CFG.world.ambientIntensity);
+const ambient = new THREE.AmbientLight(0x3a3a4a, CFG.world.ambientIntensity);
 scene.add(ambient);
 // sickly moonlight: cold green rim over the ruins
 const moon = new THREE.DirectionalLight(CFG.world.moonColor, CFG.world.moonIntensity);
