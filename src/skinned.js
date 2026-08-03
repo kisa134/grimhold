@@ -29,7 +29,7 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
 export const SKINNED = { ready: false };
 
-const BASE = '/assets';
+const BASE = import.meta.env.BASE_URL + 'assets';
 const RIG_SCALE = 0.01; // cm -> m
 
 const ANIM_FILES = {

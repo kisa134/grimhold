@@ -46,7 +46,7 @@ const STAT_DESC = {
 
 function loadIndex() {
   if (!indexPromise) {
-    indexPromise = fetch('/assets/parts-index.json')
+    indexPromise = fetch(import.meta.env.BASE_URL + 'assets/parts-index.json')
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => { index = j; return j; })
       .catch(() => null);

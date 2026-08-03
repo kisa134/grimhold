@@ -14,7 +14,7 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
 export const MODELS = { ready: false };
 
-const BASE = '/assets';
+const BASE = import.meta.env.BASE_URL + 'assets';
 const loader = new FBXLoader();
 const texLoader = new THREE.TextureLoader();
 

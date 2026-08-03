@@ -10,7 +10,7 @@
 export const CELL = 2.5;
 export const STORY = 3;
 export const DUNGEON_Y = -6;   // labyrinth floor height
-export const ASSET_BASE = '/assets/darkfantasy';
+export const ASSET_BASE = import.meta.env.BASE_URL + 'assets/darkfantasy';
 
 // ---- module inventory -------------------------------------------------------
 // pivot: how the FBX origin sits ('x0' = spans +X from origin, z-centered;
