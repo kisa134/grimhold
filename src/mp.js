@@ -12,7 +12,7 @@
 // Friendly fire: OFF. Extraction: individual.
 import * as THREE from 'three';
 import {
-  Net, connect, connectLobby, on, onClose, send, toHost, fromHost, sendEvent,
+  Net, connect, on, onClose, send, toHost, fromHost, sendEvent,
 } from './net.js';
 import { RemoteAvatar, EnemyProxy } from './remotes.js';
 import { weaponStats } from './weapons.js';
@@ -138,13 +138,27 @@ export function initMp(g) {
   });
 }
 
-export function join(addr, room, name) {
-  // announce the created hero (part list + name) so remote raiders render YOUR
-  // character; additive meta field — old clients simply ignore it
+// Connect once (idempotent) — if a lobby socket is already open we reuse it so
+// the host never drops when entering a room.
+function ensureConnected(addr) {
+  if (Net.ws && Net.ws.readyState === 1) return Promise.resolve();
+  return connect(addr);
+}
+
+// UI entry: make sure the lobby socket is open (idempotent) then return.
+export function openLobby(addr) {
+  return ensureConnected(addr);
+}
+
+function joinMeta() {
   const hero = getHero();
   const meta = { champion: String(getChampionId()) };
   if (hero) meta.hero = { parts: hero.parts, name: hero.name };
-  return connect(addr, room, name, meta).then((w) => {
+  return meta;
+}
+
+export function join(addr, room, name) {
+  return ensureConnected(addr).then(() => Net.join(room, name, joinMeta())).then((w) => {
     for (const mem of w.members) {
       if (mem.id === w.id) continue;
       if (!shims.has(mem.id)) shims.set(mem.id, mkShim(mem.id));
@@ -158,10 +172,7 @@ export function join(addr, room, name) {
 
 // Create a named lobby (you become host). Lobby id is generated server-side.
 export function createLobby(addr, lobbyName, name) {
-  const hero = getHero();
-  const meta = { champion: String(getChampionId()) };
-  if (hero) meta.hero = { parts: hero.parts, name: hero.name };
-  return connectLobby(addr, { mode: 'create', name, lobbyName, meta }).then((w) => {
+  return ensureConnected(addr).then(() => Net.createLobby(lobbyName, name, joinMeta())).then((w) => {
     game.notify(`LOBBY "${lobbyName}" created — you are the HOST`, '#6fb7ff');
     return w;
   });
@@ -169,10 +180,7 @@ export function createLobby(addr, lobbyName, name) {
 
 // Join an existing lobby by id.
 export function joinLobby(addr, lobbyId, name) {
-  const hero = getHero();
-  const meta = { champion: String(getChampionId()) };
-  if (hero) meta.hero = { parts: hero.parts, name: hero.name };
-  return connectLobby(addr, { mode: 'joinLobby', room: lobbyId, name, meta }).then((w) => {
+  return ensureConnected(addr).then(() => Net.joinLobby(lobbyId, name, joinMeta())).then((w) => {
     game.notify(w.host ? 'ONLINE RAID — you are the HOST' : 'ONLINE RAID — joined the host', '#6fb7ff');
     return w;
   });

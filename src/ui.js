@@ -6,7 +6,7 @@ import {
 } from './champion.js';
 import * as MP from './mp.js';
 import * as Creator from './creator.js';
-import { browseLobbies } from './net.js';
+import { connect, on, Net } from './net.js';
 import { getHero, ARCHETYPES, totalStats } from './hero.js';
 import { CFG } from './config.js';
 
@@ -387,9 +387,19 @@ export function showLobby() {
   const defName = (hero && hero.name) || ('raider' + Math.floor(Math.random() * 100));
   const relayAddr = `wss://architectural-applicants-musicians-particles.trycloudflare.com`;
 
+  // One persistent lobby listener for the whole session (registered once).
+  if (!showLobby._wired) {
+    showLobby._wired = true;
+    on('lobbyList', (m) => { if (showLobby._render) showLobby._render(m.lobbies || []); });
+    on('lobbyAdd', () => Net.lobbyList());
+    on('lobbyUpdate', () => Net.lobbyList());
+    on('lobbyRemove', () => Net.lobbyList());
+  }
+
   const renderList = (lobbies) => {
     const box = document.getElementById('lobby-list');
     if (!box) return;
+    showLobby._render = renderList;
     if (!lobbies.length) {
       box.innerHTML = '<div class="small" style="color:#9a8f78">No open lobbies. Create one below.</div>';
       return;
@@ -415,6 +425,7 @@ export function showLobby() {
       });
     });
   };
+  showLobby._render = renderList;
 
   s.innerHTML = `
     <h1>ONLINE LOBBIES</h1>
@@ -433,7 +444,10 @@ export function showLobby() {
   `;
   s.classList.add('active');
 
-  const browser = browseLobbies(relayAddr, renderList);
+  MP.openLobby(relayAddr).then(() => Net.lobbyList()).catch(() => {
+    const st = document.getElementById('lobby-status');
+    if (st) { st.textContent = 'Could not reach the raid server. Is it running?'; st.style.color = '#ff6040'; }
+  });
 
   document.getElementById('btn-create-lobby').addEventListener('click', () => {
     const name = (document.getElementById('lobby-name').value.trim()) || defName;
@@ -442,7 +456,6 @@ export function showLobby() {
     st.textContent = 'Creating lobby...';
     st.style.color = '#9a8f78';
     MP.createLobby(relayAddr, title, name).then(() => {
-      browser.close();
       showLoadout();
     }).catch(() => {
       st.textContent = 'Could not reach the raid server. Is it running?';
@@ -451,7 +464,6 @@ export function showLobby() {
   });
 
   document.getElementById('btn-lobby-back').addEventListener('click', () => {
-    browser.close();
     showLoadout();
   });
 }
