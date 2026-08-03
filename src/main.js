@@ -968,7 +968,7 @@ UI.showLoadout();
 const mpQs = new URLSearchParams(location.search);
 if (mpQs.get('mp') === '1') {
   MP.join(
-    mpQs.get('addr') || `ws://${location.hostname}:8787`,
+    mpQs.get('addr') || `wss://architectural-applicants-musicians-particles.trycloudflare.com`,
     mpQs.get('room') || 'keep',
     mpQs.get('name') || ('raider' + Math.floor(Math.random() * 100)),
   ).catch(() => UI.notify('RAID SERVER UNREACHABLE', '#ff6040'));

@@ -333,7 +333,7 @@ export function showLoadout() {
     <div class="panel" style="text-align:center">
       <div style="color:#c9b577;letter-spacing:2px">ONLINE RAID (LAN)</div>
       <div class="row" style="justify-content:center;align-items:center;margin-top:6px">
-        <input id="mp-addr" style="width:230px" value="${localStorage.getItem('grimhold_mp_addr') || `ws://${location.hostname}:8787`}" title="raid server address"/>
+        <input id="mp-addr" style="width:230px" value="${localStorage.getItem('grimhold_mp_addr') || `wss://architectural-applicants-musicians-particles.trycloudflare.com`}" title="raid server address"/>
         <input id="mp-room" style="width:80px" value="${localStorage.getItem('grimhold_mp_room') || 'keep'}" title="room"/>
         <input id="mp-name" style="width:120px" placeholder="your name" value="${localStorage.getItem('grimhold_mp_name') || (hero ? hero.name : '')}" title="name"/>
       </div>
