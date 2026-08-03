@@ -1,0 +1,21 @@
+diff --git a/node_modules/three/examples/jsm/loaders/FBXLoader.js b/node_modules/three/examples/jsm/loaders/FBXLoader.js
+index bc2d837..7e96d83 100644
+--- a/node_modules/three/examples/jsm/loaders/FBXLoader.js
++++ b/node_modules/three/examples/jsm/loaders/FBXLoader.js
+@@ -43,7 +43,6 @@ import {
+ 	SRGBColorSpace,
+ 	ShapeUtils
+ } from 'three';
+-import * as fflate from '../libs/fflate.module.js';
+ import { NURBSCurve } from '../curves/NURBSCurve.js';
+ 
+ /**
+@@ -3734,7 +3733,7 @@ class BinaryParser {
+ 
+ 				}
+ 
+-				const data = fflate.unzlibSync( new Uint8Array( reader.getArrayBuffer( compressedLength ) ) );
++				const data = new Uint8Array( reader.getArrayBuffer( compressedLength ) );
+ 				const reader2 = new BinaryReader( data.buffer );
+ 
+ 				switch ( type ) {

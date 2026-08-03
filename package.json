@@ -7,7 +7,8 @@
     "dev": "vite --host",
     "dev:lan": "vite --host",
     "build": "vite build",
-    "mp:server": "node server/server.mjs"
+    "mp:server": "node server/server.mjs",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "fflate": "^0.8.3",
@@ -15,6 +16,7 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
+    "patch-package": "^8.0.1",
     "vite": "^5.4.0"
   }
 }
