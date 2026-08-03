@@ -95,11 +95,10 @@ const _ARMOR_PART_NORM = {
 // to real models once ready; boxes render until then (and on failure).
 initModels().then((ok) => {
   if (ok) UI.notify('Synty assets loaded', '#7fc97f');
-}).catch(() => {});
-// Real skinned rigs + mocap clips (bigger download, loads in parallel).
+}).catch((e) => { window.__modelErr = (e && e.message) || String(e); });
 initSkinned().then((ok) => {
   if (ok) UI.notify('Warriors of Grimhold awakened', '#7fc97f');
-}).catch(() => {});
+}).catch((e) => { window.__skinErr = (e && e.message) || String(e); });
 
 const game = {
   state: 'loadout',
