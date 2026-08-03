@@ -2,6 +2,11 @@
 // melee hit sweep, interaction (loot / extraction), gate logic, juice (hit-stop,
 // screen shake), and the frame loop.
 import * as THREE from 'three';
+// fflate is required by FBXLoader for compressed Synty FBX. Vite externalizes
+// the bare `fflate` import in the prod build, so we reference it here (and stash
+// on window) to force it into the bundle.
+import * as fflatePkg from 'fflate';
+if (typeof window !== 'undefined') window.fflate = fflatePkg;
 import { buildLevel } from './level.js';
 import { Player, cameraFeel } from './player.js';
 import { Enemy } from './enemy.js';

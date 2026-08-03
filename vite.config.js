@@ -9,13 +9,11 @@ export default defineConfig({
     host: true,
     port: 7100,
   },
-  // FBXLoader pulls in fflate for compressed FBX blobs, but our Synty assets are
-  // uncompressed and Vite can't bundle fflate into the prod build (it externalizes
-  // it -> FBX parse throws -> box fallback). We patch FBXLoader (see
-  // patches/three+*.patch, applied by patch-package on install) to drop the
-  // fflate dependency entirely.
+  // FBXLoader imports `fflate` for compressed Synty FBX blobs. Vite's prod
+  // build can externalize the bare import, so we reference fflate in main.js
+  // (window.fflate = ...) to force it into the bundle, and pre-bundle it here.
   optimizeDeps: {
-    include: ['three'],
+    include: ['three', 'fflate'],
   },
   build: {
     target: 'es2020',
