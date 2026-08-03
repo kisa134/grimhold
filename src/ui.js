@@ -6,6 +6,7 @@ import {
 } from './champion.js';
 import * as MP from './mp.js';
 import * as Creator from './creator.js';
+import { browseLobbies } from './net.js';
 import { getHero, ARCHETYPES, totalStats } from './hero.js';
 import { CFG } from './config.js';
 
@@ -20,7 +21,7 @@ export function initUI(g) {
   for (const id of ['hud', 'weapon-name', 'slots', 'hpbar', 'stbar', 'gate-status', 'gold',
     'hitmarker', 'prompt', 'notify', 'vignette', 'lowhp', 'pause-hint', 'boss-name', 'bloodscreen',
     'crosshair', 'dmgnums', 'killfeed', 'kills', 'chargering', 'debugline',
-    'screen-loadout', 'screen-result',
+    'screen-loadout', 'screen-result', 'screen-lobby',
     'flow-meter']) {
     els[id] = document.getElementById(id);
   }
@@ -258,6 +259,7 @@ export function showPause(on) {
 function hideAllScreens() {
   els['screen-loadout'].classList.remove('active');
   els['screen-result'].classList.remove('active');
+  els['screen-lobby'].classList.remove('active');
   Creator.hide();
 }
 
@@ -330,18 +332,7 @@ export function showLoadout() {
     </div>
     <button class="big" id="btn-start">ENTER GRIMHOLD</button>
     <button class="big" id="btn-training" style="border-color:#5a7a9a">TRAINING</button>
-    <div class="panel" style="text-align:center">
-      <div style="color:#c9b577;letter-spacing:2px">ONLINE RAID (LAN)</div>
-      <div class="row" style="justify-content:center;align-items:center;margin-top:6px">
-        <input id="mp-addr" style="width:230px" value="${localStorage.getItem('grimhold_mp_addr') || `wss://architectural-applicants-musicians-particles.trycloudflare.com`}" title="raid server address"/>
-        <input id="mp-room" style="width:80px" value="${localStorage.getItem('grimhold_mp_room') || 'keep'}" title="room"/>
-        <input id="mp-name" style="width:120px" placeholder="your name" value="${localStorage.getItem('grimhold_mp_name') || (hero ? hero.name : '')}" title="name"/>
-      </div>
-      <button id="btn-mp">HOST + JOIN RAID</button>
-      <div class="small" id="mp-status">${MP.isMp()
-        ? `<span style="color:#6fb7ff">Connected — ${MP.isMpHost() ? 'you are the HOST' : 'joined the host'} — press ENTER GRIMHOLD to descend together.</span>`
-        : 'One raider runs <b>npm run mp:server</b>; everyone joins the same address + room. The first raider in the room hosts the enemies.'}</div>
-    </div>
+    <button class="big" id="btn-lobby" style="border-color:#6fb7ff">ONLINE LOBBY</button>
     <div class="small" style="margin-top:10px">${CONTROLS}</div>
     <div class="small">Open the extraction gate by gathering ${game.gateThreshold} loot value. Die and you lose everything you carry.</div>
   `;
@@ -385,28 +376,83 @@ export function showLoadout() {
     }));
   document.getElementById('btn-start').addEventListener('click', () => game.startRun(selectedPreset));
   document.getElementById('btn-training').addEventListener('click', () => game.startTraining(selectedPreset));
+  document.getElementById('btn-lobby').addEventListener('click', () => showLobby());
+}
 
-  // ONLINE RAID (LAN) wiring
-  document.getElementById('btn-mp').addEventListener('click', () => {
-    const addr = document.getElementById('mp-addr').value.trim() || `ws://${location.hostname}:8787`;
-    const room = document.getElementById('mp-room').value.trim() || 'keep';
-    const name = document.getElementById('mp-name').value.trim()
-      || ('raider' + Math.floor(Math.random() * 100));
-    localStorage.setItem('grimhold_mp_addr', addr);
-    localStorage.setItem('grimhold_mp_room', room);
-    localStorage.setItem('grimhold_mp_name', name);
-    const st = document.getElementById('mp-status');
-    st.textContent = 'Connecting to the raid server...';
+export function showLobby() {
+  hideAllScreens();
+  showHUD(false);
+  const s = els['screen-lobby'];
+  const hero = getHero();
+  const defName = (hero && hero.name) || ('raider' + Math.floor(Math.random() * 100));
+  const relayAddr = `wss://architectural-applicants-musicians-particles.trycloudflare.com`;
+
+  const renderList = (lobbies) => {
+    const box = document.getElementById('lobby-list');
+    if (!box) return;
+    if (!lobbies.length) {
+      box.innerHTML = '<div class="small" style="color:#9a8f78">No open lobbies. Create one below.</div>';
+      return;
+    }
+    box.innerHTML = lobbies.map(l => `
+      <div class="lobby-row">
+        <div style="flex:1;text-align:left">
+          <b style="color:#e8c85a">${l.name}</b><br/>
+          <span class="small">host ${l.host} · ${l.players}/${l.max} players</span>
+        </div>
+        <button class="lobby-join" data-id="${l.id}">JOIN</button>
+      </div>`).join('');
+    box.querySelectorAll('.lobby-join').forEach(b => {
+      b.addEventListener('click', () => {
+        const name = (document.getElementById('lobby-name').value.trim()) || defName;
+        MP.joinLobby(relayAddr, b.dataset.id, name).then(() => {
+          showLoadout();
+        }).catch(() => {
+          const st = document.getElementById('lobby-status');
+          st.textContent = 'Could not join — lobby may have closed.';
+          st.style.color = '#ff6040';
+        });
+      });
+    });
+  };
+
+  s.innerHTML = `
+    <h1>ONLINE LOBBIES</h1>
+    <h2>pick a raid, or open your own</h2>
+    <div id="lobby-list" style="width:520px;max-width:92vw;margin:10px 0"></div>
+    <div class="panel" style="text-align:center;width:520px;max-width:92vw">
+      <div style="color:#c9b577;letter-spacing:2px">CREATE A LOBBY</div>
+      <div class="row" style="justify-content:center;align-items:center;margin-top:6px">
+        <input id="lobby-name" style="width:200px" placeholder="your name" value="${defName}"/>
+        <input id="lobby-title" style="width:220px" placeholder="lobby name (e.g. Night Raid)"/>
+        <button id="btn-create-lobby">CREATE</button>
+      </div>
+      <div class="small" id="lobby-status"></div>
+    </div>
+    <button class="big" id="btn-lobby-back" style="margin-top:10px">BACK</button>
+  `;
+  s.classList.add('active');
+
+  const browser = browseLobbies(relayAddr, renderList);
+
+  document.getElementById('btn-create-lobby').addEventListener('click', () => {
+    const name = (document.getElementById('lobby-name').value.trim()) || defName;
+    const title = (document.getElementById('lobby-title').value.trim()) || (name + "'s raid");
+    const st = document.getElementById('lobby-status');
+    st.textContent = 'Creating lobby...';
     st.style.color = '#9a8f78';
-    MP.join(addr, room, name).then((w) => {
-      st.innerHTML = `Connected to <b>${addr}</b>, room <b>${room}</b> — ` +
-        (w.host ? 'you are the HOST' : 'joined the host') +
-        ' — press ENTER GRIMHOLD to descend together.';
-      st.style.color = '#6fb7ff';
+    MP.createLobby(relayAddr, title, name).then(() => {
+      browser.close();
+      showLoadout();
     }).catch(() => {
-      st.textContent = 'Could not reach the raid server. Is npm run mp:server running?';
+      st.textContent = 'Could not reach the raid server. Is it running?';
       st.style.color = '#ff6040';
     });
+  });
+
+  document.getElementById('btn-lobby-back').addEventListener('click', () => {
+    browser.close();
+    showLoadout();
   });
 }
 

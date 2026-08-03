@@ -12,7 +12,7 @@
 // Friendly fire: OFF. Extraction: individual.
 import * as THREE from 'three';
 import {
-  Net, connect, on, onClose, send, toHost, fromHost, sendEvent,
+  Net, connect, connectLobby, on, onClose, send, toHost, fromHost, sendEvent,
 } from './net.js';
 import { RemoteAvatar, EnemyProxy } from './remotes.js';
 import { weaponStats } from './weapons.js';
@@ -152,6 +152,28 @@ export function join(addr, room, name) {
     game.notify(w.host
       ? 'ONLINE RAID — you are the HOST'
       : 'ONLINE RAID — joined the host', '#6fb7ff');
+    return w;
+  });
+}
+
+// Create a named lobby (you become host). Lobby id is generated server-side.
+export function createLobby(addr, lobbyName, name) {
+  const hero = getHero();
+  const meta = { champion: String(getChampionId()) };
+  if (hero) meta.hero = { parts: hero.parts, name: hero.name };
+  return connectLobby(addr, { mode: 'create', name, lobbyName, meta }).then((w) => {
+    game.notify(`LOBBY "${lobbyName}" created — you are the HOST`, '#6fb7ff');
+    return w;
+  });
+}
+
+// Join an existing lobby by id.
+export function joinLobby(addr, lobbyId, name) {
+  const hero = getHero();
+  const meta = { champion: String(getChampionId()) };
+  if (hero) meta.hero = { parts: hero.parts, name: hero.name };
+  return connectLobby(addr, { mode: 'joinLobby', room: lobbyId, name, meta }).then((w) => {
+    game.notify(w.host ? 'ONLINE RAID — you are the HOST' : 'ONLINE RAID — joined the host', '#6fb7ff');
     return w;
   });
 }

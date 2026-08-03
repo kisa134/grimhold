@@ -88,6 +88,9 @@
   .cr-buttons { margin-top:18px; display:flex; flex-wrap:wrap; gap:4px; }
   .cr-error { color:#ff6040; font-size:12px; margin-top:8px; min-height:16px; }
   .cr-preset.selected, .cr-weapon.selected { border-color:#e8c85a; background:#3a2c1c; box-shadow:0 0 10px rgba(232,200,90,.3); }
+  .lobby-row { display:flex; align-items:center; gap:12px; padding:10px 12px; margin:6px 0; background:#141019; border:1px solid #3a2c1c; border-radius:4px; }
+  .lobby-join { background:#2a4a6a; border:1px solid #6fb7ff; color:#dff; padding:8px 18px; font-size:14px; letter-spacing:1px; cursor:pointer; }
+  .lobby-join:hover { background:#37618a; }
 </style>
 </head>
 <body>
@@ -119,6 +122,7 @@
 <div class="screen" id="screen-loadout"></div>
 <div class="screen" id="screen-result"></div>
 <div class="screen" id="screen-creator"></div>
+<div class="screen" id="screen-lobby"></div>
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>
