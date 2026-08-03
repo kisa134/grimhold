@@ -6,7 +6,7 @@ import {
 } from './champion.js';
 import * as MP from './mp.js';
 import * as Creator from './creator.js';
-import { on, lobbyList } from './net.js';
+import { on, lobbyList, Net, disconnect } from './net.js';
 import { getHero, ARCHETYPES, totalStats } from './hero.js';
 import { CFG } from './config.js';
 
@@ -361,7 +361,7 @@ export function showLoadout() {
   });
 
   s.querySelectorAll('[data-preset]').forEach(b =>
-    b.addEventListener('click', () => { selectedPreset = b.dataset.preset; showLoadout(); }));
+    b.addEventListener('click', () => { selectedPreset = b.dataset.preset; try { localStorage.setItem('grimhold_preset', selectedPreset); } catch {} showLoadout(); }));
   s.querySelectorAll('[data-eqw]').forEach(b =>
     b.addEventListener('click', () => {
       const m = getMeta();
@@ -374,7 +374,7 @@ export function showLoadout() {
       setEquip(m.equipWeaponId, m.equipArmorId === b.dataset.eqa ? null : b.dataset.eqa);
       showLoadout();
     }));
-  document.getElementById('btn-start').addEventListener('click', () => game.startRun(selectedPreset));
+  document.getElementById('btn-start').addEventListener('click', () => { try { document.querySelector('canvas')?.requestPointerLock?.(); } catch {} game.startRun(selectedPreset); });
   document.getElementById('btn-training').addEventListener('click', () => game.startTraining(selectedPreset));
   document.getElementById('btn-lobby').addEventListener('click', () => showLobby());
 }
@@ -387,14 +387,24 @@ export function showLobby() {
   const defName = (hero && hero.name) || ('raider' + Math.floor(Math.random() * 100));
   const relayAddr = `wss://architectural-applicants-musicians-particles.trycloudflare.com`;
 
-  // One persistent lobby listener for the whole session (registered once).
+  // Persistent listeners (registered once for the whole session).
   if (!showLobby._wired) {
     showLobby._wired = true;
-    on('lobbyList', (m) => { if (showLobby._render) showLobby._render(m.lobbies || []); });
-    on('lobbyAdd', () => lobbyList());
-    on('lobbyUpdate', () => lobbyList());
-    on('lobbyRemove', () => lobbyList());
+    on('lobbyList', (m) => { if (showLobby._mode === 'browse' && showLobby._render) showLobby._render(m.lobbies || []); });
+    on('lobbyAdd', () => { if (showLobby._mode === 'browse') lobbyList(); });
+    on('lobbyUpdate', () => { if (showLobby._mode === 'browse') lobbyList(); });
+    on('lobbyRemove', () => { if (showLobby._mode === 'browse') lobbyList(); });
+    on('memberJoin', () => { if (showLobby._mode === 'room') renderRoom(); });
+    on('memberLeave', () => { if (showLobby._mode === 'room') renderRoom(); });
   }
+
+  // If already in a room, show the "in lobby" screen instead of the browser.
+  if (MP.isMp()) {
+    showLobby._mode = 'room';
+    renderRoom();
+    return;
+  }
+  showLobby._mode = 'browse';
 
   const renderList = (lobbies) => {
     const box = document.getElementById('lobby-list');
@@ -416,11 +426,11 @@ export function showLobby() {
       b.addEventListener('click', () => {
         const name = (document.getElementById('lobby-name').value.trim()) || defName;
         MP.joinLobby(relayAddr, b.dataset.id, name).then(() => {
-          showLoadout();
+          showLobby._mode = 'room';
+          renderRoom();
         }).catch(() => {
           const st = document.getElementById('lobby-status');
-          st.textContent = 'Could not join — lobby may have closed.';
-          st.style.color = '#ff6040';
+          if (st) { st.textContent = 'Could not join — lobby may have closed.'; st.style.color = '#ff6040'; }
         });
       });
     });
@@ -456,16 +466,43 @@ export function showLobby() {
     st.textContent = 'Creating lobby...';
     st.style.color = '#9a8f78';
     MP.createLobby(relayAddr, title, name).then(() => {
-      showLoadout();
+      showLobby._mode = 'room';
+      renderRoom();
     }).catch(() => {
       st.textContent = 'Could not reach the raid server. Is it running?';
       st.style.color = '#ff6040';
     });
   });
 
-  document.getElementById('btn-lobby-back').addEventListener('click', () => {
-    showLoadout();
-  });
+  document.getElementById('btn-lobby-back').addEventListener('click', () => showLoadout());
+
+  // ---- "in a room" view ----
+  function renderRoom() {
+    showLobby._mode = 'room';
+    showLobby._renderRoom = renderRoom;
+    const members = [...Net.members.values()];
+    s.innerHTML = `
+      <h1>IN LOBBY</h1>
+      <h2>${MP.isMpHost() ? 'YOU ARE THE HOST' : 'JOINED THE HOST'} — room ${Net.room || ''}</h2>
+      <div class="panel" style="text-align:center;width:520px;max-width:92vw">
+        <div style="color:#c9b577;letter-spacing:2px">PLAYERS (${members.length})</div>
+        <div style="margin-top:8px">
+          ${members.map(m => `<div class="lobby-row"><span>${m.name}${m.id === Net.id ? ' (you)' : ''}${m.host ? ' ★ HOST' : ''}</span></div>`).join('')}
+        </div>
+      </div>
+      <button class="big" id="btn-lobby-enter">ENTER GRIMHOLD</button>
+      <button class="big" id="btn-lobby-leave" style="border-color:#a55">LEAVE LOBBY</button>
+    `;
+    s.classList.add('active');
+    const enter = document.getElementById('btn-lobby-enter');
+    if (enter) enter.addEventListener('click', () => {
+      try { document.querySelector('canvas')?.requestPointerLock?.(); } catch {}
+      try { game.startRun(selectedPreset); }
+      catch (e) { console.log('ENTER ERR: ' + (e && e.stack || e)); }
+    });
+    const leave = document.getElementById('btn-lobby-leave');
+    if (leave) leave.addEventListener('click', () => { disconnect(); showLoadout(); });
+  }
 }
 
 export function showResult(extracted, lines) {

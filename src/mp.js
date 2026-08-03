@@ -112,6 +112,13 @@ export function initMp(g) {
     if (d.k === 'enemies') applyEnemySnapshot(d.list);
     else if (d.k === 'lootInit' || d.k === 'lootAdd') addLootEntries(d.list);
     else if (d.k === 'lootGone') removeLootEntry(d.id);
+    else if (d.k === 'runStart') {
+      // host started the raid — clients descend together
+      if (isMpClient() && game.state !== 'run') {
+        const preset = (typeof localStorage !== 'undefined' && localStorage.getItem('grimhold_preset')) || 'knight';
+        game.startRun(preset);
+      }
+    }
     else if (d.k === 'dmg' && d.to === Net.id) {
       if (game.state === 'run' && game.player && !game.player.dead) {
         game.damagePlayer(d.dmg, new THREE.Vector3(d.x, 0, d.z), null,
@@ -222,6 +229,11 @@ export function onRunStart() {
   stateAcc = 0;
   snapAcc = 0;
   if (isMpHost()) sendLootInit();
+}
+
+// Host tells clients to start the raid together.
+export function hostRunStart() {
+  if (Net.connected && Net.isHost) fromHost({ k: 'runStart' });
 }
 
 export function sendLifeEvent(what) {

@@ -636,6 +636,7 @@ game.startRun = (presetKey) => {
   game.enemies = mpClient ? [] : level.enemySpawns.map(s => new Enemy(game, s));
   if (!mpClient) loot.spawnWorldLoot(level.lootSpawns);
   MP.onRunStart();
+  if (MP.isMpHost()) MP.hostRunStart(); // tell clients to descend together
 
   game.state = 'run';
   game.paused = false;
@@ -645,7 +646,6 @@ game.startRun = (presetKey) => {
     ? `${hero.name} descends — ${ARCHETYPES[hero.archetype].label} of Grimhold. Find ${game.gateThreshold} loot value and get out.`
     : `You descend as the ${preset.name}. Find ${game.gateThreshold} loot value and get out.`, '#c9b577');
   if (weaponItem.rarity === 'cursed') UI.notify('The cursed blade drinks your blood...', '#b04dff');
-  renderer.domElement.requestPointerLock();
 };
 
 // ---------- training room ----------
