@@ -878,28 +878,19 @@ export class Enemy {
 
     part.mesh.getWorldPosition(_v);
     if (severed) {
+      // grab the real region mesh BEFORE hiding it, so gore can drop a real model chunk
+      const regionMeshes = (this.skinned && this.skinned.regionMeshes[part.key]) || [];
+      const realMesh = regionMeshes.find((m) => m.visible) || regionMeshes[0] || null;
       part.state = 'severed';
       part.mesh.visible = false;
       if (this.skinned) {
         severRegion(this.skinned, part.key);
         if (part.key === 'rightArm' && this.wieldVisual) this.wieldVisual.visible = false;
         if (part.key === 'leftArm' && this.shieldVisual) this.shieldVisual.visible = false;
-        // pale bone cross-section at the cut, riding the nearest bone
-        const bone = this._boneForPart(part.key);
-        if (bone) {
-          const disc = new THREE.Mesh(new THREE.CircleGeometry(7, 10), BONE_MAT);
-          bone.add(disc);
-        }
-      } else {
-        // pale bone cross-section at the cut on the box body
-        const STUMP_Y = { head: 1.47, torso: 1.12, leftArm: 1.45, rightArm: 1.45, leftLeg: 0.9, rightLeg: 0.9 };
-        const r = Math.min(part.size[0], part.size[2]) * 0.34;
-        const disc = new THREE.Mesh(new THREE.CircleGeometry(r, 10), BONE_MAT);
-        disc.position.set(part.mesh.position.x, STUMP_Y[part.key] ?? part.mesh.position.y, part.mesh.position.z);
-        disc.rotation.x = -Math.PI / 2;
-        this.bodyG.add(disc);
       }
-      this.game.gore.spawnLimb(_v.clone(), part.key, part.size, part.mesh.material.color.getHex());
+      // drop the REAL body part (not a box) using its cloned mesh
+      this.game.gore.spawnSeveredMesh(realMesh, _v.clone(), { size: part.size, color: part.mesh.material.color.getHex() });
+      // limb logic handled in _applyPartEffects (arms -> no attack, legs -> crawl)
       // arterial spray oriented along the cut, away from the body
       const sprayDir = dir.clone().multiplyScalar(1.4);
       this.game.gore.burst(_v, CFG.gore.severBurst, CFG.gore.severBurstPower, sprayDir);
@@ -955,7 +946,7 @@ export class Enemy {
     }
     this._applyPartEffects();
 
-    if (part.key === 'head' || part.key === 'torso') this.die();
+    if (part.key === 'head') this.die(); // torso cannot be severed; only hp 0 kills (see update)
     else this.bleeds.push(CFG.combat.bleedT); // an open limb wound bleeds
   }
 
@@ -964,11 +955,13 @@ export class Enemy {
     this.legsLost = ['leftLeg', 'rightLeg'].filter(k => this.parts[k].state !== 'intact').length;
     this.dmgMult = 1 - 0.4 * this.armsLost;
     this.cdMult = 1 + 0.5 * this.armsLost;
-    if (this.legsLost === 1 && !this.crawl) {
+    this.canAttack = this.armsLost < 2; // both arms gone -> cannot strike
+    // crawl on ANY leg loss (one leg limps, two legs crawls — never stands)
+    if (this.legsLost >= 1 && !this.crawl) {
       this.crawl = true;
       this.game.notify(`${this.name} is CRAWLING!`, '#ffa040');
     }
-    if (this.legsLost >= 2) this.die(); // both legs gone = bleed-out kill
+    // both legs lost = permanent crawl (bleed-out handled in update), NOT instant death
   }
 
   die() {
@@ -1419,7 +1412,7 @@ export class Enemy {
           this._moveToward(player.pos, speed * 3.5, dt);
         }
 
-        if (dist < this.type.range && this.cooldownT <= 0) {
+        if (dist < this.type.range && this.cooldownT <= 0 && this.canAttack) {
           this.state = 'windup';
           this.stateT = 0;
           // directional attack: the player can read & chamber/mirror this

@@ -186,7 +186,21 @@ export class Gore {
   }
 
   // Severed body part — persists for the whole run (capped).
+  // Severed body part as a REAL cloned mesh (not a box). mesh: THREE.Object3D
+  // (the hidden region mesh from the enemy). Falls back to chunk if no mesh.
+  spawnSeveredMesh(mesh, worldPos, opts = {}) {
+    if (!mesh) return this._chunk(worldPos, opts.size || [0.2, 0.6, 0.2], opts.color || 0x6a5a4a, { persistent: true });
+    const clone = mesh.clone(true);
+    clone.traverse((o) => { if (o.isMesh) { o.visible = true; o.material = o.material.clone(); } });
+    clone.position.copy(worldPos);
+    clone.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+    const box = new THREE.Box3().setFromObject(clone);
+    const half = Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z) / 2 || 0.3;
+    return this._addLimb(clone, worldPos, half, { persistent: true });
+  }
+
   spawnLimb(pos, partKey, size, color) {
+    // kept for compatibility; real severing now passes a mesh via spawnSeveredMesh
     return this._chunk(pos, size, color, { persistent: true });
   }
 

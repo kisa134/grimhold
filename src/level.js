@@ -625,15 +625,14 @@ async function loadVisuals(scene, placements, gate) {
         if (!o.isMesh) return;
         let g = o.geometry.clone().applyMatrix4(o.matrixWorld);
         g.scale(0.01, 0.01, 0.01); // Synty FBX are authored in cm
-        for (const name of Object.keys(g.attributes)) {
-          if (name !== 'position' && name !== 'normal' && name !== 'uv') g.deleteAttribute(name);
-        }
+        // keep position / normal / uv only (Synty FBX ship proper UVs)
         if (!g.attributes.uv) {
           g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
         }
         parts.push(g.index ? g.toNonIndexed() : g);
       });
       const merged = parts.length === 1 ? parts[0] : mergeGeometries(parts, false);
+      if (!merged || !merged.attributes.uv) throw new Error('merge lost geometry/uv for ' + key);
       geoCache.set(key, merged);
       return merged;
     };
