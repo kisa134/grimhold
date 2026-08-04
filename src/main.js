@@ -18,6 +18,7 @@ import * as Meta from './meta.js';
 import { makeWeaponItem } from './weapons.js';
 import { AudioEngine } from './audio.js';
 import { initModels, MODELS } from './models.js';
+import { loadCastle, CASTLE_URL } from './mapglb.js';
 import { initSkinned, SKINNED } from './skinned.js';
 import { PlayerBody } from './playerbody.js';
 import * as MP from './mp.js';
@@ -90,11 +91,10 @@ if (typeof window !== 'undefined') window.__dbg = { scene, camera, level, THREE 
 // collision/floor data on top of the procedural level so movement/combat use the
 // actual cathedral geometry instead of the generated labyrinth.
 if (typeof window !== 'undefined') {
-  import('./mapglb.js').then(async (m) => {
+  (async () => {
     try {
-      const castle = await m.loadCastle(m.CASTLE_URL);
+      const castle = await loadCastle(CASTLE_URL);
       scene.add(castle.root);
-      // override collision + floor lookups with the glb AABB data
       level.collideCircle = castle.collideCircle;
       level.floorHeightAt = castle.floorHeightAt;
       level.raycastWall = castle.raycastWall;
@@ -105,7 +105,7 @@ if (typeof window !== 'undefined') {
     } catch (e) {
       console.warn('[GRIMHOLD] castle load failed, using procedural level:', e);
     }
-  });
+  })();
 }
 
 // armor-break hook dedupe: enemy.damageArmor fires game.onArmorBreak on break,
