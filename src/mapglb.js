@@ -11,7 +11,7 @@ const BASE = import.meta.env.BASE_URL + 'assets';
 // 263 MB file. Locally we use the same-origin public/ asset.
 const IS_PROD = typeof location !== 'undefined' && location.hostname.endsWith('github.io');
 export const CASTLE_URL = IS_PROD
-  ? 'https://deposits-retreat-grain-analyze.trycloudflare.com/cathedral.glb'
+  ? 'https://williams-those-questionnaire-focused.trycloudflare.com/cathedral.glb'
   : `${BASE}/castle/cathedral.glb`;
 
 // Build a level-compatible object from a loaded glb scene.
