@@ -1,10 +1,17 @@
 import { defineConfig } from 'vite';
+import { fileURLToPath } from 'url';
 
 // base is set to the repo name so the built site works under GitHub Pages
 // (https://kisa134.github.io/grimhold/). For local dev (`npm run dev`) Vite
 // still serves from '/', which is fine.
 export default defineConfig({
   base: '/grimhold/',
+  resolve: {
+    alias: {
+      'three/addons': fileURLToPath(new URL('./node_modules/three/examples/jsm', import.meta.url)),
+      'three/examples/jsm': fileURLToPath(new URL('./node_modules/three/examples/jsm', import.meta.url)),
+    },
+  },
   server: {
     host: true,
     port: 7100,

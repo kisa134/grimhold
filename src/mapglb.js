@@ -2,9 +2,17 @@
 // GRIMHOLD level. Builds AABB colliders + floor height lookup from mesh bounds so
 // the existing combat/movement code (which expects a `level` object) keeps working.
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const BASE = import.meta.env.BASE_URL + 'assets';
+
+// On GitHub Pages the repo glb is a Git-LFS pointer (not the real file), so for
+// *.github.io we load from the CORS-enabled cloudflared tunnel serving the real
+// 263 MB file. Locally we use the same-origin public/ asset.
+const IS_PROD = typeof location !== 'undefined' && location.hostname.endsWith('github.io');
+export const CASTLE_URL = IS_PROD
+  ? 'https://deposits-retreat-grain-analyze.trycloudflare.com/cathedral.glb'
+  : `${BASE}/castle/cathedral.glb`;
 
 // Build a level-compatible object from a loaded glb scene.
 // Returns: { root, colliders, floors, floorHeightAt, raycastWall, gate, training,
@@ -144,5 +152,3 @@ function deriveEnemySpawns(bbox, floors) {
   }
   return out;
 }
-
-export const CASTLE_URL = `${BASE}/assets/castle/cathedral.glb`;
