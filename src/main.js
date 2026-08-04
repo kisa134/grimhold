@@ -990,7 +990,7 @@ onCfgChange((path) => {
   }
 });
 
-UI.showLoadout();
+UI.showMain();
 
 // URL-param raid join: ?mp=1&addr=ws://host:8787&room=keep&name=alice
 const mpQs = new URLSearchParams(location.search);

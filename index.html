@@ -99,6 +99,46 @@
   .cr-error { color:#ff6040; font-size:12px; margin-top:8px; min-height:16px; }
   .cr-preset.selected, .cr-weapon.selected { border-color:#e8c85a; background:#3a2c1c; box-shadow:0 0 10px rgba(232,200,90,.3); }
 
+  /* ================= MAIN MENU (Dark Fantasy Menus style) ================= */
+  #screen-main {
+    background:
+      radial-gradient(ellipse at 50% 40%, #3a0d14 0%, #1a0609 45%, #070305 80%);
+    overflow:hidden;
+  }
+  #screen-main::before { /* ritual circle glow */
+    content:''; position:absolute; left:50%; top:38%; width:620px; height:620px;
+    transform:translate(-50%,-50%); border-radius:50%;
+    background:radial-gradient(circle, rgba(180,20,30,.18) 0%, rgba(120,10,18,0) 60%);
+    pointer-events:none;
+  }
+  .mm-wrap { position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; }
+  .mm-emblem { width:150px; height:150px; margin-bottom:6px; filter:drop-shadow(0 0 18px rgba(180,20,30,.6)); }
+  .mm-title { font-size:74px; letter-spacing:18px; color:#e9d9b0; margin:0;
+    text-shadow:0 0 30px #700, 0 3px 0 #2a0608, 0 0 4px #000; font-weight:bold; }
+  .mm-sub { color:#c9a14a; letter-spacing:5px; font-size:15px; margin:2px 0 26px; text-shadow:0 0 10px #000; }
+  .mm-buttons { display:flex; flex-direction:column; gap:12px; align-items:center; }
+  .mm-btn {
+    pointer-events:auto; width:340px; padding:14px 0; font-size:18px; letter-spacing:4px;
+    color:#e9d9b0; background:linear-gradient(180deg, rgba(40,20,24,.9), rgba(18,8,10,.95));
+    border:2px solid #6a5230; border-radius:3px; cursor:pointer; position:relative;
+    font-family:inherit; text-shadow:0 0 8px #000; transition:all .12s;
+    box-shadow:0 0 0 rgba(232,200,90,0), inset 0 0 14px rgba(0,0,0,.6);
+  }
+  .mm-btn::before { /* gold corner ornaments */
+    content:''; position:absolute; inset:4px; border:1px solid rgba(232,200,90,.25);
+    pointer-events:none; border-radius:2px;
+  }
+  .mm-btn:hover { border-color:#e8c85a; color:#fff0c8; box-shadow:0 0 18px rgba(232,200,90,.35), inset 0 0 14px rgba(0,0,0,.5); transform:translateY(-1px); }
+  .mm-btn .mk { color:#b8122a; }
+  .mm-currency {
+    position:absolute; top:18px; right:20px; z-index:3; display:flex; align-items:center; gap:6px;
+    background:rgba(10,8,12,.8); border:1px solid #4a3a28; padding:6px 12px; border-radius:3px;
+    font-size:14px; color:#e8c85a; letter-shadow:0 0 6px #000;
+  }
+  .mm-currency .coin { width:18px; height:18px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #7fd07f, #1f6e2a); display:inline-block; }
+  .mm-foot { position:absolute; bottom:14px; left:0; right:0; text-align:center; color:#7a3a3a; font-size:11px; letter-spacing:2px; z-index:2; }
+
+
   /* ================= DARK FANTASY CREATOR SKIN =================
      Sprites: public/assets/hud/DarkFantasy/* + Icons_Weapons/* + Icons_Stats/*
      Frames are drawn on ::before overlays so the gold tint filter never
@@ -526,6 +566,21 @@
   <div id="panel-hint">` TUNING</div>
 </div>
 <div id="pause-hint">PAUSED &mdash; CLICK TO RESUME</div>
+<div class="screen" id="screen-main">
+  <div class="mm-currency"><span class="coin"></span><span id="mm-gold">0</span></div>
+  <div class="mm-wrap">
+    <img class="mm-emblem" src="./assets/hud/DarkFantasy/SPR_DarkFantasy_Greeble_Skull_01.png" alt="" />
+    <h1 class="mm-title">GRIMHOLD</h1>
+    <div class="mm-sub">A MEDIEVAL LOOT-EXTRACTION SLASHER</div>
+    <div class="mm-buttons">
+      <button class="mm-btn" id="btn-play">PLAY <span class="mk">▸</span></button>
+      <button class="mm-btn" id="btn-lobby">ONLINE LOBBY</button>
+      <button class="mm-btn" id="btn-training">TRAINING</button>
+      <button class="mm-btn" id="btn-settings">SETTINGS</button>
+    </div>
+  </div>
+  <div class="mm-foot">A HERMES × SYNTY PRODUCTION</div>
+</div>
 <div class="screen" id="screen-loadout"></div>
 <div class="screen" id="screen-result"></div>
 <div class="screen" id="screen-creator"></div>

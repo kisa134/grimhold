@@ -21,7 +21,7 @@ export function initUI(g) {
   for (const id of ['hud', 'weapon-name', 'slots', 'hpbar', 'stbar', 'gate-status', 'gold',
     'hitmarker', 'prompt', 'notify', 'vignette', 'lowhp', 'pause-hint', 'boss-name', 'bloodscreen',
     'crosshair', 'weapon-icon', 'dmgnums', 'killfeed', 'kills', 'chargering', 'debugline',
-    'screen-loadout', 'screen-result', 'screen-lobby',
+    'screen-loadout', 'screen-result', 'screen-lobby', 'screen-main',
     'flow-meter']) {
     els[id] = document.getElementById(id);
   }
@@ -38,6 +38,38 @@ export function initUI(g) {
 
 export function showHUD(on) {
   els['hud'].style.display = on ? 'block' : 'none';
+}
+
+export function showMain() {
+  // hide all other screens, show main menu
+  for (const s of ['screen-loadout', 'screen-result', 'screen-creator', 'screen-lobby']) {
+    if (els[s]) els[s].classList.remove('active');
+  }
+  const m = els['screen-main'];
+  m.classList.add('active');
+  showHUD(false);
+  // gold readout
+  try { const g = (game && game.runGold) || 0; const el = document.getElementById('mm-gold'); if (el) el.textContent = g; } catch {}
+  // wire buttons (once)
+  if (!m.dataset.wired) {
+    m.dataset.wired = '1';
+    const base = (import.meta.env && import.meta.env.BASE_URL) || '/';
+    document.getElementById('btn-play').addEventListener('click', () => { m.classList.remove('active'); showLoadout(); });
+    document.getElementById('btn-lobby').addEventListener('click', () => { m.classList.remove('active'); showLobby(); });
+    document.getElementById('btn-training').addEventListener('click', () => {
+      m.classList.remove('active');
+      // training = start run in training mode (see main.js startRun)
+      if (game && game.startTraining) game.startTraining();
+      else { /* fallback: open creator then training */ showLoadout(); }
+    });
+    document.getElementById('btn-settings').addEventListener('click', () => {
+      // settings screen (future); for now toggle tuning panel
+      const tp = document.getElementById('tuning-panel');
+      if (tp) tp.style.display = tp.style.display === 'block' ? 'none' : 'block';
+    });
+    // also show gold from vault gold in localStorage
+    try { const vg = Number(localStorage.getItem('grimhold_vaultgold') || 0); const el = document.getElementById('mm-gold'); if (el && vg) el.textContent = vg; } catch {}
+  }
 }
 
 export function updateHUD() {
