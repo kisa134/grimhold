@@ -17,6 +17,7 @@ import {
   PROPS, TORCH_POINTS, TRAINING, LOOT_SPAWNS, ENEMY_SPAWNS, AMBUSH_VOLUMES,
   SPAWN, EXTRACT, VAULT_CELL, GATE_CELL, parseMaze, mazePath,
 } from './leveldata.js';
+import { expandRooms } from './rooms.js';
 
 const HPI = Math.PI / 2;
 
@@ -364,6 +365,24 @@ export function buildLevel(scene) {
       const w = (m.w || m.len || 1) * s, d = (m.d || m.t || m.w || 1) * s;
       addCollider(p.x, p.y, p.z, Math.min(w, 2.2), (m.h || 1) * s, Math.min(d, 2.2));
     }
+  }
+
+  // ==========================================================================
+  // 3b. AUTHOR ROOMS (Diablo-style prefab chambers from src/rooms.js)
+  // ==========================================================================
+  {
+    const rooms = expandRooms();
+    for (const p of rooms.placements) place(p.mod, p.x, p.y, p.z, p.ry || 0, p.s || 1);
+    for (const t of rooms.torchPoints) {
+      place('torch1', t.x, t.y - 1.0, t.z, t.ry || 0);
+      lightCandidates.push({
+        x: t.x + Math.sin(t.ry || 0) * 0.45, y: t.y + 0.35, z: t.z + Math.cos(t.ry || 0) * 0.45,
+        base: 34, dist: 14,
+      });
+    }
+    // enemy / loot slots surfaced for the spawner (consumed by enemy.js later)
+    if (rooms.enemySlots.length) console.log('[rooms] enemy slots:', rooms.enemySlots.length);
+    if (rooms.lootSlots.length) console.log('[rooms] loot slots:', rooms.lootSlots.length);
   }
 
   // ==========================================================================
