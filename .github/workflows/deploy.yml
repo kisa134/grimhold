@@ -12,7 +12,9 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # NOTE: do NOT cancel-in-progress — it can kill the deploy job mid-publish,
+  # leaving Pages serving a stale bundle forever.
+  # cancel-in-progress: true
 
 jobs:
   build:
