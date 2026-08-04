@@ -36,6 +36,20 @@ export async function loadCastle(url, opts = {}) {
     }
   });
 
+  // ---- apply Dark Fantasy stone texture to all meshes (glb has no materials) ----
+  const texLoader = new THREE.TextureLoader();
+  const tex = await new Promise((res) => texLoader.load(`${BASE}/darkfantasy/PolygonDarkFantasy_Texture_01_A.png`, res, undefined, () => res(null)));
+  if (tex) { tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; }
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex || null,
+    color: tex ? 0xffffff : 0x6a6a72,
+    roughness: 0.85, metalness: 0.05,
+  });
+  for (const o of meshes) {
+    o.material = mat;
+    o.castShadow = false; o.receiveShadow = false;
+  }
+
   // ---- level API (mirrors buildLevel return shape) ----
   function floorHeightAt(x, z, refY) {
     let best = -Infinity;
