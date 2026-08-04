@@ -324,83 +324,65 @@ export function showLoadout() {
 
   const presetCards = Object.values(PRESETS).map(p => {
     const st = p.stats;
-    const overridden = hero ? ' <span style="color:#9a8f78">(hero overrides)</span>' : '';
-    return `<div class="card">
+    return `<button class="lo-class ${p.key === selectedPreset ? 'selected' : ''}" data-preset="${p.key}">
       <h3>${p.name}</h3>
-      <div class="small">${p.desc}</div>
-      <div class="small" style="margin-top:8px">
-        VIG ${st.vigor} &nbsp; STR ${st.strength} &nbsp; AGI ${st.agility} &nbsp; RES ${st.resolve}<br/>
-        Weapon: ${weaponStats(p.weapon).name}${p.armor ? '<br/>Armor: ' + p.armor.name + ' (+' + p.armor.hp + ' HP' + (p.armor.hp >= 20 ? ', HEAVY: -8% speed, +stagger resist' : '') + ')' : ''}${overridden}
-      </div>
-      <button data-preset="${p.key}" class="${p.key === selectedPreset ? 'selected' : ''}">CHOOSE</button>
-    </div>`;
+      <div class="desc">${p.desc}</div>
+      <div class="stats">VIG ${st.vigor} · STR ${st.strength} · AGI ${st.agility} · RES ${st.resolve}</div>
+      <div class="wpn">⚔ ${weaponStats(p.weapon).name}${p.armor ? ' · ' + p.armor.name + ' +' + p.armor.hp + 'HP' : ''}</div>
+    </button>`;
   }).join('');
 
-  // champion panel: the CREATED HERO when one exists, else the preset wardrobe
-  const championPanel = hero ? (() => {
+  const championInner = hero ? (() => {
     const hst = totalStats(hero);
-    return `
-      <div style="color:#c9b577;letter-spacing:2px">YOUR HERO</div>
-      <canvas id="champion-view" style="width:280px;height:330px;max-width:80vw"></canvas>
-      <div class="row" style="justify-content:center;align-items:center;gap:14px">
-        <span id="champ-name" style="color:#e8c85a;font-size:18px;letter-spacing:2px">${hero.name}</span>
-      </div>
-      <div class="small">${ARCHETYPES[hero.archetype].label} · ${weaponStats(hero.weapon).name} ·
-        VIG ${hst.vigor} STR ${hst.strength} AGI ${hst.agility} RES ${hst.resolve}</div>
-      <button class="big" id="btn-create" style="margin-top:8px">EDIT IN CHARACTER CREATOR</button>`;
+    return `<div class="lo-champ-name" id="champ-name">${hero.name}</div>
+      <div class="lo-champ-nav"><span class="small">${ARCHETYPES[hero.archetype].label} · ${weaponStats(hero.weapon).name}</span></div>
+      <div class="lo-champ-nav"><button class="lo-eq-btn" id="btn-create" style="border-color:#a8843f">EDIT HERO</button></div>`;
   })() : `
-      <div style="color:#c9b577;letter-spacing:2px">YOUR CHAMPION — SYNTY WARDROBE</div>
-      <canvas id="champion-view" style="width:280px;height:330px;max-width:80vw"></canvas>
-      <div class="row" style="justify-content:center;align-items:center;gap:14px">
-        <button id="champ-prev">◀ PREV</button>
-        <span id="champ-name" style="color:#e8c85a;min-width:110px">PRESET #${getChampionId()}</span>
-        <button id="champ-next">NEXT ▶</button>
-      </div>
-      <div class="small" id="champ-hint">Browse official Synty armor presets — or forge your own.</div>
-      <button class="big" id="btn-create" style="margin-top:8px;border-color:#a8843f">CREATE CHARACTER</button>`;
+      <div class="lo-champ-nav"><button id="champ-prev" class="lo-eq-btn">◀ PREV</button>
+      <span class="lo-champ-name" id="champ-name" style="font-size:13px">PRESET #${getChampionId()}</span>
+      <button id="champ-next" class="lo-eq-btn">NEXT ▶</button></div>
+      <div class="lo-champ-nav"><button class="lo-eq-btn" id="btn-create" style="border-color:#a8843f">CREATE CHARACTER</button></div>`;
 
   const weapons = meta.stash.filter(i => i.kind === 'weapon');
   const armors = meta.stash.filter(i => i.kind === 'armor');
   const relics = meta.stash.filter(i => i.kind === 'relic');
   const stashHtml = meta.stash.length === 0
-    ? '<div class="small">Your stash is empty. Extract to keep what you find.</div>'
-    : `<div class="row">${weapons.map(w =>
-        `<button data-eqw="${w.id}" class="${meta.equipWeaponId === w.id ? 'selected' : ''}">${w.name} (${w.value}g)</button>`).join('')}
-       ${armors.map(a =>
-        `<button data-eqa="${a.id}" class="${meta.equipArmorId === a.id ? 'selected' : ''}">${a.name} +${a.hp}HP${a.hp >= 20 ? ' (heavy: -8% spd, +stagger res)' : ''} (${a.value}g)</button>`).join('')}
-       ${relics.map(r => `<button disabled>${r.name} (${r.value}g) — sold at extraction</button>`).join('')}</div>
-       <div class="small">Click a stash weapon/armor to equip it for the next run (overrides preset gear). Click again to unequip.</div>`;
+    ? '<div class="small">Stash empty. Extract to keep loot.</div>'
+    : `${weapons.map(w => `<button class="lo-eq-btn ${meta.equipWeaponId === w.id ? 'selected' : ''}" data-eqw="${w.id}">⚔ ${w.name} (${w.value}g)</button>`).join('')}
+       ${armors.map(a => `<button class="lo-eq-btn ${meta.equipArmorId === a.id ? 'selected' : ''}" data-eqa="${a.id}">🛡 ${a.name} +${a.hp}HP (${a.value}g)</button>`).join('')}
+       ${relics.map(r => `<button class="lo-eq-btn" disabled>${r.name} (${r.value}g) — sell at extract</button>`).join('')}`;
 
   s.innerHTML = `
-    <div class="df-title">
-      <div class="arch"></div>
-      <div class="plaque"></div>
-      <div class="skull l"></div>
-      <div class="skull r"></div>
+    <div class="lo-top">
       <h1>GRIMHOLD</h1>
       <h2>A MEDIEVAL LOOT-EXTRACTION SLASHER</h2>
     </div>
-    <div class="df-rule"></div>
-    <div class="row">${presetCards}</div>
-    <div class="panel" style="text-align:center">
-      ${championPanel}
+    <div class="lo-grid">
+      <div class="lo-col">
+        <div class="lo-col-title">CHOOSE YOUR CLASS</div>
+        <div class="lo-classes">${presetCards}</div>
+      </div>
+      <div class="lo-col lo-center">
+        <div class="lo-col-title">YOUR CHAMPION</div>
+        <canvas id="champion-view" class="lo-champ-canvas"></canvas>
+        ${championInner}
+      </div>
+      <div class="lo-col">
+        <div class="lo-col-title">VAULT &amp; STASH</div>
+        <div class="lo-gold">VAULT GOLD: ${meta.gold}</div>
+        <div class="lo-stash">${stashHtml}</div>
+      </div>
     </div>
-    <div class="panel" style="text-align:center">
-      <div style="color:#e8c85a;font-size:18px">VAULT GOLD: ${meta.gold}</div>
-      <div style="margin-top:8px">${stashHtml}</div>
-    </div>
-    <div class="df-actions">
-      <button class="big" id="btn-start">ENTER GRIMHOLD</button>
+    <div class="lo-bottom">
+      <button class="big" id="btn-start">ENTER GRIMHOLD ▸</button>
       <button class="big" id="btn-training">TRAINING</button>
       <button class="big" id="btn-lobby">ONLINE LOBBY</button>
     </div>
-    <div class="df-controls">${CONTROLS}</div>
-    <div class="small" style="margin-top:8px">Open the extraction gate by gathering ${game.gateThreshold} loot value. Die and you lose everything you carry.</div>
+    <div class="lo-controls">${CONTROLS}</div>
   `;
   s.classList.add('active');
   s.classList.add('menu-df');
 
-  // champion constructor wiring (live 3D preview; retries while assets stream in)
   const champCanvas = document.getElementById('champion-view');
   const champName = document.getElementById('champ-name');
   const tryPreview = () => {
@@ -410,32 +392,17 @@ export function showLoadout() {
   tryPreview();
   const champPrev = document.getElementById('champ-prev');
   if (champPrev) {
-    champPrev.addEventListener('click', () => {
-      champName.textContent = `PRESET #${cycleChampion(-1) || getChampionId()}`;
-    });
-    document.getElementById('champ-next').addEventListener('click', () => {
-      champName.textContent = `PRESET #${cycleChampion(1) || getChampionId()}`;
-    });
+    champPrev.addEventListener('click', () => { champName.textContent = `PRESET #${cycleChampion(-1) || getChampionId()}`; });
+    document.getElementById('champ-next').addEventListener('click', () => { champName.textContent = `PRESET #${cycleChampion(1) || getChampionId()}`; });
   }
-  document.getElementById('btn-create').addEventListener('click', () => {
-    stopChampionPreview();
-    Creator.open(() => showLoadout());
-  });
+  document.getElementById('btn-create').addEventListener('click', () => { stopChampionPreview(); Creator.open(() => showLoadout()); });
 
   s.querySelectorAll('[data-preset]').forEach(b =>
     b.addEventListener('click', () => { selectedPreset = b.dataset.preset; try { localStorage.setItem('grimhold_preset', selectedPreset); } catch {} showLoadout(); }));
   s.querySelectorAll('[data-eqw]').forEach(b =>
-    b.addEventListener('click', () => {
-      const m = getMeta();
-      setEquip(m.equipWeaponId === b.dataset.eqw ? null : b.dataset.eqw, m.equipArmorId);
-      showLoadout();
-    }));
+    b.addEventListener('click', () => { const m = getMeta(); setEquip(m.equipWeaponId === b.dataset.eqw ? null : b.dataset.eqw, m.equipArmorId); showLoadout(); }));
   s.querySelectorAll('[data-eqa]').forEach(b =>
-    b.addEventListener('click', () => {
-      const m = getMeta();
-      setEquip(m.equipWeaponId, m.equipArmorId === b.dataset.eqa ? null : b.dataset.eqa);
-      showLoadout();
-    }));
+    b.addEventListener('click', () => { const m = getMeta(); setEquip(m.equipWeaponId, m.equipArmorId === b.dataset.eqa ? null : b.dataset.eqa); showLoadout(); }));
   document.getElementById('btn-start').addEventListener('click', () => { try { document.querySelector('canvas')?.requestPointerLock?.(); } catch {} game.startRun(selectedPreset); });
   document.getElementById('btn-training').addEventListener('click', () => game.startTraining(selectedPreset));
   document.getElementById('btn-lobby').addEventListener('click', () => showLobby());

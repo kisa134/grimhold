@@ -138,6 +138,44 @@
   .mm-currency .coin { width:18px; height:18px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #7fd07f, #1f6e2a); display:inline-block; }
   .mm-foot { position:absolute; bottom:14px; left:0; right:0; text-align:center; color:#7a3a3a; font-size:11px; letter-spacing:2px; z-index:2; }
 
+  /* ================= LOADOUT (screen 2) — single-screen grid ================= */
+  #screen-loadout.menu-df {
+    display:none; background:radial-gradient(ellipse at 50% 35%, #1c1322 0%, #0a0710 60%, #040308 100%);
+    overflow:hidden; padding:0;
+  }
+  #screen-loadout.menu-df.active { display:grid; grid-template-rows:auto 1fr auto; grid-template-columns:1fr; height:100vh; width:100vw; }
+  .lo-top { display:flex; flex-direction:column; align-items:center; padding:14px 0 4px; position:relative; }
+  .lo-top h1 { font-size:34px; letter-spacing:10px; color:#e9d9b0; margin:0; text-shadow:0 0 20px #700, 0 2px 0 #2a0608; }
+  .lo-top h2 { color:#c9a14a; letter-spacing:3px; font-size:12px; margin:2px 0 0; }
+  .lo-grid { display:grid; grid-template-columns: 1.1fr 1fr 1fr; gap:14px; padding:10px 22px; align-items:stretch; min-height:0; }
+  .lo-col { display:flex; flex-direction:column; min-height:0; }
+  .lo-col-title { color:#c9b577; letter-spacing:3px; font-size:12px; border-bottom:1px solid #4a3a28; padding-bottom:5px; margin-bottom:8px; text-align:center; }
+  .lo-classes { display:flex; flex-direction:column; gap:8px; overflow:hidden; }
+  .lo-class {
+    flex:1; pointer-events:auto; text-align:left; background:rgba(14,10,16,.82); border:1px solid #4a3a28;
+    border-radius:3px; padding:8px 12px; cursor:pointer; position:relative; transition:all .12s; color:#d8cdb4; font-family:inherit;
+  }
+  .lo-class:hover { border-color:#a8843f; background:rgba(28,20,28,.9); }
+  .lo-class.selected { border-color:#e8c85a; box-shadow:0 0 12px rgba(232,200,90,.3); background:rgba(34,24,28,.92); }
+  .lo-class h3 { margin:0 0 2px; color:#e8c85a; letter-spacing:2px; font-size:15px; }
+  .lo-class .desc { font-size:11px; color:#9a8f78; line-height:1.3; }
+  .lo-class .stats { font-size:11px; color:#b8ad95; margin-top:3px; }
+  .lo-class .wpn { font-size:11px; color:#c9a14a; margin-top:2px; }
+  .lo-center { align-items:center; justify-content:flex-start; }
+  .lo-champ-canvas { width:100%; flex:1; min-height:0; border:2px solid #5a4630; border-radius:3px; background:radial-gradient(ellipse at 50% 40%, #181020 0%, #0a0710 70%); box-shadow:inset 0 0 30px rgba(0,0,0,.7); }
+  .lo-champ-name { color:#e8c85a; font-size:16px; letter-spacing:2px; margin-top:6px; }
+  .lo-champ-nav { display:flex; gap:8px; margin-top:4px; }
+  .lo-stash { display:flex; flex-direction:column; gap:5px; overflow-y:auto; min-height:0; }
+  .lo-eq-btn { pointer-events:auto; text-align:left; background:rgba(14,10,16,.82); border:1px solid #4a3a28; color:#cbbfa6; padding:6px 10px; font-size:12px; font-family:inherit; border-radius:3px; cursor:pointer; }
+  .lo-eq-btn:hover { border-color:#a8843f; }
+  .lo-eq-btn.selected { border-color:#e8c85a; color:#e8c85a; }
+  .lo-eq-btn:disabled { opacity:.45; cursor:default; }
+  .lo-gold { text-align:center; color:#e8c85a; font-size:15px; letter-spacing:2px; margin:6px 0; }
+  .lo-bottom { display:flex; gap:12px; justify-content:center; align-items:center; padding:10px 0 16px; }
+  .lo-bottom .big { font-size:17px; padding:12px 30px; }
+  .lo-controls { font-size:10px; color:#6a6250; text-align:center; letter-spacing:1px; max-width:760px; margin:0 auto; line-height:1.4; }
+
+
 
   /* ================= DARK FANTASY CREATOR SKIN =================
      Sprites: public/assets/hud/DarkFantasy/* + Icons_Weapons/* + Icons_Stats/*
