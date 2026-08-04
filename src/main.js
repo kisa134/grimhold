@@ -84,6 +84,7 @@ window.addEventListener('resize', () => {
 
 // ---------- game object ----------
 const level = buildLevel(scene);
+if (typeof window !== 'undefined') window.__dbg = { scene, camera, level, THREE };
 
 // armor-break hook dedupe: enemy.damageArmor fires game.onArmorBreak on break,
 // and the melee sweep fires it as a fallback — this guarantees exactly once
@@ -635,6 +636,7 @@ game.startRun = (presetKey) => {
 
   game.player = new Player(game, { weapon: weaponItem, stats });
   game.playerBody = new PlayerBody(game); // visible first-person body
+  if (typeof window !== 'undefined') window.__game = game; // debug hook
   // mp: clients hide local enemy AI and wait for host snapshots + loot list
   const mpClient = MP.isMpClient();
   game.enemies = mpClient ? [] : level.enemySpawns.map(s => new Enemy(game, s));

@@ -369,13 +369,16 @@ export function buildLevel(scene) {
 
   // ==========================================================================
   // 3b. AUTHOR ROOMS (Diablo-style prefab chambers from src/rooms.js)
+  // Collects room torch LIGHTS locally; they are merged into lightCandidates
+  // in section 4 (where that array is declared) to avoid a TDZ ReferenceError.
   // ==========================================================================
+  const roomLights = [];
   {
     const rooms = expandRooms();
     for (const p of rooms.placements) place(p.mod, p.x, p.y, p.z, p.ry || 0, p.s || 1);
     for (const t of rooms.torchPoints) {
       place('torch1', t.x, t.y - 1.0, t.z, t.ry || 0);
-      lightCandidates.push({
+      roomLights.push({
         x: t.x + Math.sin(t.ry || 0) * 0.45, y: t.y + 0.35, z: t.z + Math.cos(t.ry || 0) * 0.45,
         base: 34, dist: 14,
       });
@@ -389,6 +392,8 @@ export function buildLevel(scene) {
   // 4. TORCHES + LIGHT BUDGET
   // ==========================================================================
   const lightCandidates = [];
+  // merge author-room torch lights collected in section 3b
+  for (const L of roomLights) lightCandidates.push(L);
   for (const t of TORCH_POINTS) {
     place('torch1', t.x, t.y - 1.0, t.z, t.ry || 0);
     if (t.lit) lightCandidates.push({
