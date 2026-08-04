@@ -14,7 +14,7 @@ import {
   SKINNED, MATS, buildSkinnedCharacter, Animator, enemyParts, presetParts,
 } from './skinned.js';
 import { buildWeaponVisual } from './models.js';
-import { WEAPONS } from './weapons.js';
+import { WEAPONS, weaponStats } from './weapons.js';
 import { CFG } from './config.js';
 import { SLOT_DEFS, classifyPart } from './partnames.js';
 import * as Hero from './hero.js';
@@ -43,6 +43,33 @@ const STAT_DESC = {
   agility: '+12 stamina, +4% move speed per point',
   resolve: '+12% stagger resist, +10% stamina regen per point',
 };
+
+// ---- Dark Fantasy sprite wiring (visual only) ----
+// Weapon slot icons: public/assets/hud/Icons_Weapons/ICON_SM_Wep_*_DarkFantasy.png
+const WEAPON_ICONS = {
+  sword: 'ICON_SM_Wep_Sword_01_DarkFantasy.png',
+  axe: 'ICON_SM_Wep_Axe_01_DarkFantasy.png',
+  mace: 'ICON_SM_Wep_Mace_01_DarkFantasy.png',
+};
+// Attribute icons: public/assets/hud/Icons_Stats/ICON_DarkFantasy_Stat_*_Stroke.png
+const STAT_ICONS = {
+  vigor: 'ICON_DarkFantasy_Stat_Health_01_Stroke.png',
+  strength: 'ICON_DarkFantasy_Stat_Strength_01_Stroke.png',
+  agility: 'ICON_DarkFantasy_Stat_Speed_01_Stroke.png',
+  resolve: 'ICON_DarkFantasy_Stat_Mind_01_Stroke.png',
+};
+function assetUrl(rel) { return import.meta.env.BASE_URL + 'assets/hud/' + rel; }
+function weaponIconUrl(key) {
+  return assetUrl('Icons_Weapons/' + (WEAPON_ICONS[key] || WEAPON_ICONS.sword));
+}
+// Ornamental section panel with a gilded banner header.
+function panel(titleText) {
+  const sec = el('div', 'cr-section cr-panel');
+  const banner = el('div', 'cr-banner');
+  banner.appendChild(el('div', 'cr-title', titleText));
+  sec.appendChild(banner);
+  return sec;
+}
 
 function loadIndex() {
   if (!indexPromise) {
@@ -140,10 +167,11 @@ function buildDOM() {
 
   left.appendChild(el('div', 'cr-h1', 'CREATE CHARACTER'));
   left.appendChild(el('div', 'cr-h2', 'Forge the one who descends'));
+  left.appendChild(el('div', 'cr-divider'));
 
   // ---- 1. presets ----
-  const s1 = el('div', 'cr-section');
-  s1.appendChild(el('div', 'cr-title', 'ORIGIN — sets look, stats & weapon (all editable after)'));
+  const s1 = panel('ORIGIN');
+  s1.appendChild(el('div', 'cr-hint-line', 'sets look, stats & weapon — all editable after'));
   const presetRow = el('div', 'row');
   presetRow.style.justifyContent = 'flex-start';
   for (const a of Object.values(Hero.ARCHETYPES)) {
@@ -159,8 +187,7 @@ function buildDOM() {
   left.appendChild(s1);
 
   // ---- 2. appearance ----
-  const s2 = el('div', 'cr-section');
-  s2.appendChild(el('div', 'cr-title', 'APPEARANCE'));
+  const s2 = panel('APPEARANCE');
   const genderRow = el('div', 'cr-row');
   genderRow.appendChild(el('div', 'cr-label', 'BODY'));
   const gval = el('div', 'cr-val');
@@ -177,8 +204,7 @@ function buildDOM() {
   left.appendChild(s2);
 
   // ---- 3. stats ----
-  const s3 = el('div', 'cr-section');
-  s3.appendChild(el('div', 'cr-title', 'ATTRIBUTES'));
+  const s3 = panel('ATTRIBUTES');
   const poolLine = el('div', 'cr-pool');
   poolLine.id = 'cr-pool';
   s3.appendChild(poolLine);
@@ -191,16 +217,24 @@ function buildDOM() {
   left.appendChild(s3);
 
   // ---- 4. weapon ----
-  const s4 = el('div', 'cr-section');
-  s4.appendChild(el('div', 'cr-title', 'STARTING WEAPON'));
+  const s4 = panel('STARTING WEAPON');
   const wrow = el('div', 'row');
   wrow.style.justifyContent = 'flex-start';
   wrow.id = 'cr-weapons';
   for (const k of Hero.WEAPON_CHOICES) {
     const w = WEAPONS[k];
-    const b = el('button', 'cr-weapon', `${w.name}`);
+    const s = weaponStats(k);                       // live CFG-tuned numbers
+    const b = el('button', 'cr-weapon');
     b.dataset.weapon = k;
-    b.title = `${w.type} · ${w.damage} dmg`;
+    b.title = `${s.type} · ${s.damage} dmg · ${s.range.toFixed(1)}m reach`;
+    const slot = el('div', 'cr-slot');              // Frame_Box_Small_01 border (CSS)
+    const img = el('img');
+    img.src = weaponIconUrl(k);
+    img.alt = w.name;
+    slot.appendChild(img);
+    b.appendChild(slot);
+    b.appendChild(el('div', 'cr-wname', w.name.toUpperCase()));
+    b.appendChild(el('div', 'cr-wstat', `${s.damage} DMG`));
     b.addEventListener('click', () => {
       hero.weapon = k;
       updateWeaponButtons();
@@ -212,8 +246,7 @@ function buildDOM() {
   left.appendChild(s4);
 
   // ---- 5. name ----
-  const s5 = el('div', 'cr-section');
-  s5.appendChild(el('div', 'cr-title', 'NAME'));
+  const s5 = panel('NAME');
   const nameInput = el('input', 'cr-name');
   nameInput.id = 'cr-name';
   nameInput.maxLength = 24;
@@ -312,6 +345,9 @@ function updateStats() {
   const tot = Hero.totalStats(hero);
   for (const k of Hero.STAT_KEYS) {
     const row = el('div', 'cr-row');
+    const icon = el('div', 'cr-stat-icon');         // Icons_Stats sprite
+    if (STAT_ICONS[k]) icon.style.backgroundImage = `url('${assetUrl('Icons_Stats/' + STAT_ICONS[k])}')`;
+    row.appendChild(icon);
     row.appendChild(el('div', 'cr-label', Hero.STAT_LABELS[k]));
     const minus = el('button', 'cr-arrow', '−');
     minus.disabled = hero.alloc[k] <= 0;

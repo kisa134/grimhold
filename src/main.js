@@ -86,6 +86,28 @@ window.addEventListener('resize', () => {
 const level = buildLevel(scene);
 if (typeof window !== 'undefined') window.__dbg = { scene, camera, level, THREE };
 
+// Load the real Dark Fantasy castle (exported from Unity .glb) and overlay its
+// collision/floor data on top of the procedural level so movement/combat use the
+// actual cathedral geometry instead of the generated labyrinth.
+if (typeof window !== 'undefined') {
+  import('./mapglb.js').then(async (m) => {
+    try {
+      const castle = await m.loadCastle(m.CASTLE_URL);
+      scene.add(castle.root);
+      // override collision + floor lookups with the glb AABB data
+      level.collideCircle = castle.collideCircle;
+      level.floorHeightAt = castle.floorHeightAt;
+      level.raycastWall = castle.raycastWall;
+      level.castleRoot = castle.root;
+      level.castleColliders = castle.colliders;
+      if (window.__game) window.__game.castle = castle;
+      console.log('[GRIMHOLD] castle glb loaded:', castle.meshCount, 'meshes');
+    } catch (e) {
+      console.warn('[GRIMHOLD] castle load failed, using procedural level:', e);
+    }
+  });
+}
+
 // armor-break hook dedupe: enemy.damageArmor fires game.onArmorBreak on break,
 // and the melee sweep fires it as a fallback — this guarantees exactly once
 const _armorBreakFired = new WeakMap(); // enemy -> { part, t }

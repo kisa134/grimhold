@@ -6,7 +6,7 @@ import {
 } from './champion.js';
 import * as MP from './mp.js';
 import * as Creator from './creator.js';
-import { on, lobbyList, Net, disconnect } from './net.js';
+import { on, onClose, lobbyList, Net, disconnect } from './net.js';
 import { getHero, ARCHETYPES, totalStats } from './hero.js';
 import { CFG } from './config.js';
 
@@ -340,8 +340,15 @@ export function showLoadout() {
        <div class="small">Click a stash weapon/armor to equip it for the next run (overrides preset gear). Click again to unequip.</div>`;
 
   s.innerHTML = `
-    <h1>GRIMHOLD</h1>
-    <h2>A MEDIEVAL LOOT-EXTRACTION SLASHER</h2>
+    <div class="df-title">
+      <div class="arch"></div>
+      <div class="plaque"></div>
+      <div class="skull l"></div>
+      <div class="skull r"></div>
+      <h1>GRIMHOLD</h1>
+      <h2>A MEDIEVAL LOOT-EXTRACTION SLASHER</h2>
+    </div>
+    <div class="df-rule"></div>
     <div class="row">${presetCards}</div>
     <div class="panel" style="text-align:center">
       ${championPanel}
@@ -350,13 +357,16 @@ export function showLoadout() {
       <div style="color:#e8c85a;font-size:18px">VAULT GOLD: ${meta.gold}</div>
       <div style="margin-top:8px">${stashHtml}</div>
     </div>
-    <button class="big" id="btn-start">ENTER GRIMHOLD</button>
-    <button class="big" id="btn-training" style="border-color:#5a7a9a">TRAINING</button>
-    <button class="big" id="btn-lobby" style="border-color:#6fb7ff">ONLINE LOBBY</button>
-    <div class="small" style="margin-top:10px">${CONTROLS}</div>
-    <div class="small">Open the extraction gate by gathering ${game.gateThreshold} loot value. Die and you lose everything you carry.</div>
+    <div class="df-actions">
+      <button class="big" id="btn-start">ENTER GRIMHOLD</button>
+      <button class="big" id="btn-training">TRAINING</button>
+      <button class="big" id="btn-lobby">ONLINE LOBBY</button>
+    </div>
+    <div class="df-controls">${CONTROLS}</div>
+    <div class="small" style="margin-top:8px">Open the extraction gate by gathering ${game.gateThreshold} loot value. Die and you lose everything you carry.</div>
   `;
   s.classList.add('active');
+  s.classList.add('menu-df');
 
   // champion constructor wiring (live 3D preview; retries while assets stream in)
   const champCanvas = document.getElementById('champion-view');
@@ -416,6 +426,9 @@ export function showLobby() {
     on('lobbyRemove', () => { if (showLobby._mode === 'browse') lobbyList(); });
     on('memberJoin', () => { if (showLobby._mode === 'room') renderRoom(); });
     on('memberLeave', () => { if (showLobby._mode === 'room') renderRoom(); });
+    on('host', () => { if (showLobby._mode === 'room') renderRoom(); });
+    // cosmetic: reflect socket loss on the status strip
+    onClose(() => { if (showLobby._setConn) showLobby._setConn('off', 'DISCONNECTED'); });
   }
 
   // If already in a room, show the "in lobby" screen instead of the browser.
@@ -426,19 +439,38 @@ export function showLobby() {
   }
   showLobby._mode = 'browse';
 
+  // ---- connection status strip (connected / host / error) ----
+  // Purely cosmetic: reads Net.* + MP.* state, never mutates it.
+  const setConn = (state, text) => {
+    const el = document.getElementById('lobby-conn');
+    if (!el) return;
+    el.className = 'lobby-conn is-' + state;
+    el.innerHTML = `<span class="dot"></span><span>${text}</span>`;
+  };
+  showLobby._setConn = setConn;
+  const refreshConn = () => {
+    if (!Net.connected) { setConn('off', 'DISCONNECTED'); return; }
+    if (MP.isMpHost()) setConn('host', `CONNECTED · HOST${Net.room ? ' · ' + Net.room : ''}`);
+    else if (MP.isMp()) setConn('on', `CONNECTED · GUEST${Net.room ? ' · ' + Net.room : ''}`);
+    else setConn('on', 'CONNECTED TO RAID SERVER');
+  };
+  showLobby._refreshConn = refreshConn;
+
   const renderList = (lobbies) => {
     const box = document.getElementById('lobby-list');
     if (!box) return;
     showLobby._render = renderList;
+    refreshConn();
     if (!lobbies.length) {
-      box.innerHTML = '<div class="small" style="color:#9a8f78">No open lobbies. Create one below.</div>';
+      box.innerHTML = '<div class="lobby-empty">NO OPEN LOBBIES &mdash; FORGE YOUR OWN BELOW</div>';
       return;
     }
     box.innerHTML = lobbies.map(l => `
       <div class="lobby-row">
-        <div style="flex:1;text-align:left">
-          <b style="color:#e8c85a">${l.name}</b><br/>
-          <span class="small">host ${l.host} · ${l.players}/${l.max} players</span>
+        <span class="lobby-gem"></span>
+        <div class="lobby-meta">
+          <div class="lobby-name">${l.name}</div>
+          <div class="lobby-sub">host <b>${l.host}</b> &middot; ${l.players}/${l.max} raiders</div>
         </div>
         <button class="lobby-join" data-id="${l.id}">JOIN</button>
       </div>`).join('');
@@ -449,6 +481,7 @@ export function showLobby() {
           showLobby._mode = 'room';
           renderRoom();
         }).catch(() => {
+          setConn('err', 'COULD NOT JOIN');
           const st = document.getElementById('lobby-status');
           if (st) { st.textContent = 'Could not join — lobby may have closed.'; st.style.color = '#ff6040'; }
         });
@@ -458,23 +491,31 @@ export function showLobby() {
   showLobby._render = renderList;
 
   s.innerHTML = `
-    <h1>ONLINE LOBBIES</h1>
-    <h2>pick a raid, or open your own</h2>
-    <div id="lobby-list" style="width:520px;max-width:92vw;margin:10px 0"></div>
-    <div class="panel" style="text-align:center;width:520px;max-width:92vw">
-      <div style="color:#c9b577;letter-spacing:2px">CREATE A LOBBY</div>
-      <div class="row" style="justify-content:center;align-items:center;margin-top:6px">
-        <input id="lobby-name" style="width:200px" placeholder="your name" value="${defName}"/>
-        <input id="lobby-title" style="width:220px" placeholder="lobby name (e.g. Night Raid)"/>
-        <button id="btn-create-lobby">CREATE</button>
+    <div class="df-title">
+      <div class="arch"></div>
+      <div class="plaque"></div>
+      <h1>ONLINE LOBBIES</h1>
+      <h2>PICK A RAID, OR OPEN YOUR OWN</h2>
+    </div>
+    <div class="df-rule"></div>
+    <div class="lobby-conn is-wait" id="lobby-conn"><span class="dot"></span><span>REACHING THE RAID SERVER…</span></div>
+    <div class="lobby-listbox"><div class="lobby-listbox-inner" id="lobby-list"></div></div>
+    <div class="lobby-create">
+      <div class="lobby-heading">CREATE A LOBBY</div>
+      <div class="row" style="justify-content:center;align-items:center;margin-top:10px">
+        <input id="lobby-name" style="width:190px" placeholder="your name" value="${defName}"/>
+        <input id="lobby-title" style="width:210px" placeholder="lobby name (e.g. Night Raid)"/>
       </div>
+      <div style="margin-top:10px"><button id="btn-create-lobby">CREATE LOBBY</button></div>
       <div class="small" id="lobby-status"></div>
     </div>
     <button class="big" id="btn-lobby-back" style="margin-top:10px">BACK</button>
   `;
   s.classList.add('active');
+  s.classList.add('menu-df');
 
-  MP.openLobby(relayAddr).then(() => lobbyList()).catch(() => {
+  MP.openLobby(relayAddr).then(() => { refreshConn(); lobbyList(); }).catch(() => {
+    setConn('err', 'RAID SERVER UNREACHABLE');
     const st = document.getElementById('lobby-status');
     if (st) { st.textContent = 'Could not reach the raid server. Is it running?'; st.style.color = '#ff6040'; }
   });
@@ -485,10 +526,12 @@ export function showLobby() {
     const st = document.getElementById('lobby-status');
     st.textContent = 'Creating lobby...';
     st.style.color = '#9a8f78';
+    setConn('wait', 'FORGING LOBBY…');
     MP.createLobby(relayAddr, title, name).then(() => {
       showLobby._mode = 'room';
       renderRoom();
     }).catch(() => {
+      setConn('err', 'RAID SERVER UNREACHABLE');
       st.textContent = 'Could not reach the raid server. Is it running?';
       st.style.color = '#ff6040';
     });
@@ -502,18 +545,35 @@ export function showLobby() {
     showLobby._renderRoom = renderRoom;
     const members = [...Net.members.values()];
     s.innerHTML = `
-      <h1>IN LOBBY</h1>
-      <h2>${MP.isMpHost() ? 'YOU ARE THE HOST' : 'JOINED THE HOST'} — room ${Net.room || ''}</h2>
-      <div class="panel" style="text-align:center;width:520px;max-width:92vw">
-        <div style="color:#c9b577;letter-spacing:2px">PLAYERS (${members.length})</div>
-        <div style="margin-top:8px">
-          ${members.map(m => `<div class="lobby-row"><span>${m.name}${m.id === Net.id ? ' (you)' : ''}${m.host ? ' ★ HOST' : ''}</span></div>`).join('')}
+      <div class="df-title">
+        <div class="arch"></div>
+        <div class="plaque"></div>
+        <h1>IN LOBBY</h1>
+        <h2>${MP.isMpHost() ? 'YOU ARE THE HOST' : 'JOINED THE HOST'}</h2>
+      </div>
+      <div class="df-rule"></div>
+      <div class="lobby-conn ${MP.isMpHost() ? 'is-host' : 'is-on'}" id="lobby-conn">
+        <span class="dot"></span>
+        <span>${MP.isMpHost() ? 'CONNECTED · HOST' : 'CONNECTED · GUEST'}${Net.room ? ' · ROOM ' + Net.room : ''}</span>
+      </div>
+      <div class="lobby-listbox">
+        <div class="lobby-heading" style="color:#c9b577;letter-spacing:5px;font-size:14px;text-align:center">RAIDERS (${members.length})</div>
+        <div class="lobby-listbox-inner" style="margin-top:10px">
+          ${members.map(m => `
+            <div class="lobby-row member">
+              <span class="lobby-gem"></span>
+              <div class="lobby-meta">
+                <div class="lobby-name">${m.name}</div>
+                <div class="lobby-sub">${m.host ? '<span class="tag-host">&#9733; HOST</span>' : '<span class="tag-you">RAIDER</span>'}${m.id === Net.id ? ' &middot; you' : ''}</div>
+              </div>
+            </div>`).join('')}
         </div>
       </div>
       <button class="big" id="btn-lobby-enter">ENTER GRIMHOLD</button>
       <button class="big" id="btn-lobby-leave" style="border-color:#a55">LEAVE LOBBY</button>
     `;
     s.classList.add('active');
+    s.classList.add('menu-df');
     const enter = document.getElementById('btn-lobby-enter');
     if (enter) enter.addEventListener('click', () => {
       try { document.querySelector('canvas')?.requestPointerLock?.(); } catch {}
