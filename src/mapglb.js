@@ -145,4 +145,4 @@ function deriveEnemySpawns(bbox, floors) {
   return out;
 }
 
-export const CASTLE_URL = `https://deposits-retreat-grain-analyze.trycloudflare.com/cathedral.glb`;
+export const CASTLE_URL = `${BASE}/assets/castle/cathedral.glb`;

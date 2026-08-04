@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: grimhold
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviews: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /assets/castle/cathedral.glb
+        name: Access-Control-Allow-Origin
+        value: "*"
