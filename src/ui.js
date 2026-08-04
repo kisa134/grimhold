@@ -414,7 +414,7 @@ export function showLobby() {
   const s = els['screen-lobby'];
   const hero = getHero();
   const defName = (hero && hero.name) || ('raider' + Math.floor(Math.random() * 100));
-  const relayAddr = `wss://architectural-applicants-musicians-particles.trycloudflare.com`;
+  const relayAddr = `wss://exhaust-obtain-months-collar.trycloudflare.com`;
 
   // Persistent listeners (registered once for the whole session).
   if (!showLobby._wired) {
