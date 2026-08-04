@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GRIMHOLD</title>
+<style>
+  html, body { margin:0; padding:0; background:#050508; overflow:hidden; font-family:Georgia,'Times New Roman',serif; color:#d8cdb4; }
+  canvas { display:block; }
+  #hud { position:fixed; inset:0; pointer-events:none; display:none; z-index:2; font-family:Georgia,'Times New Roman',serif; }
+  /* ---- health / stamina bars: visible dark-fantasy framing ---- */
+  .statbar { position:absolute; left:26px; width:320px; height:38px; }
+  .statbar .frame { position:absolute; inset:0; z-index:3; pointer-events:none;
+    background:#0c0a10 url('/grimhold/assets/SPR_DarkFantasy_Bar_01_Bottom-CLuGsejZ.png') center/100% 100% no-repeat;
+    border:2px solid #6a5230; border-radius:4px; box-shadow:0 0 8px #000, inset 0 0 12px rgba(0,0,0,.6); }
+  .statbar .track { position:absolute; left:30px; right:30px; top:8px; bottom:8px; background:rgba(0,0,0,.6); border-radius:2px; overflow:hidden; z-index:1; }
+  .statbar .fill { height:100%; width:100%; transition:width .09s linear; }
+  #hpbar { bottom:28px; }
+  #hpbar .fill { background:linear-gradient(#e23b38,#7a0f0f); box-shadow:inset 0 0 6px rgba(255,80,60,.7); }
+  #stbar { bottom:70px; height:32px; }
+  #stbar .fill { background:linear-gradient(#5fb84a,#2c5e22); box-shadow:inset 0 0 6px rgba(120,255,120,.6); }
+  #weapon-icon { position:absolute; left:24px; bottom:112px; width:56px; height:56px; z-index:3; }
+  #weapon-icon img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 2px 3px #000); }
+  #weapon-name { position:absolute; left:88px; bottom:126px; font-size:14px; letter-spacing:1px; color:#e8c85a; text-shadow:0 0 5px #000, 0 1px 0 #000; z-index:3; }
+  #slots { position:absolute; left:88px; bottom:108px; font-size:12px; color:#8d8266; text-shadow:0 0 4px #000; z-index:3; }
+  #gold { position:absolute; right:26px; bottom:34px; font-size:18px; color:#e8c85a; text-shadow:0 0 6px #000, 0 1px 0 #000; font-weight:bold; z-index:3; }
+  #gate-status { position:absolute; right:26px; bottom:64px; font-size:14px; letter-spacing:1px; text-shadow:0 0 6px #000, 0 1px 0 #000; z-index:3; }
+  #crosshair { position:absolute; left:50%; top:50%; width:34px; height:34px; margin:-17px; z-index:3; }
+  #crosshair img { width:100%; height:100%; object-fit:contain; }
+  #chargering { position:absolute; left:50%; top:50%; width:34px; height:34px; margin:-17px; border-radius:50%; --chg:0; opacity:0; transition:opacity .1s;
+    background:conic-gradient(#e8c85a calc(var(--chg) * 360deg), rgba(90,80,60,.22) 0deg);
+    -webkit-mask:radial-gradient(circle, transparent 11px, #000 12px);
+    mask:radial-gradient(circle, transparent 11px, #000 12px); }
+  #dmgnums { position:absolute; inset:0; overflow:hidden; }
+  .dmgnum { position:absolute; font-size:19px; font-weight:bold; text-shadow:0 0 5px #000, 0 2px 2px #000; animation:dmgfloat .85s forwards; pointer-events:none; }
+  .dmgnum.white { color:#f0ead8; }
+  .dmgnum.yellow { color:#ffd24d; font-size:23px; }
+  .dmgnum.red { color:#ff4030; font-size:26px; }
+  .dmgnum.gold { color:#ffcc33; font-size:30px; }
+  .dmgnum.graze { color:#9a9a9a; font-size:14px; }
+  .dmgnum.spark { color:#ffd870; font-size:17px; }
+  @keyframes dmgfloat { 0%{opacity:0; transform:translate(-50%,-50%) scale(.6);} 12%{opacity:1; transform:translate(-50%,-60%) scale(1.15);} 100%{opacity:0; transform:translate(-50%,-210%) scale(.9);} }
+  #killfeed { position:absolute; left:50%; top:32%; transform:translateX(-50%); text-align:center; pointer-events:none; width:700px; }
+  .killpop { font-size:46px; letter-spacing:9px; font-weight:bold; font-family:Georgia,'Times New Roman',serif; text-shadow:0 0 20px currentColor, 0 3px 0 #000; animation:killpop 1.35s forwards; }
+  @keyframes killpop { 0%{opacity:0; transform:scale(.35);} 14%{opacity:1; transform:scale(1.18);} 28%{transform:scale(1);} 72%{opacity:1;} 100%{opacity:0; transform:scale(1.06) translateY(-12px);} }
+  #kills { position:absolute; right:24px; bottom:96px; font-size:14px; letter-spacing:2px; color:#c01222; text-shadow:0 0 6px #000; }
+  #hitmarker { position:absolute; left:50%; top:50%; width:26px; height:26px; margin:-13px; opacity:0; font-size:22px; color:#ffe1e1; text-align:center; line-height:26px; text-shadow:0 0 6px #a00; }
+  #notify { position:absolute; left:50%; top:62%; transform:translateX(-50%); text-align:center; font-size:15px; width:600px; }
+  .note { margin:2px 0; text-shadow:0 0 6px #000; animation:fadeout 2.6s forwards; }
+  @keyframes fadeout { 0%{opacity:0; transform:translateY(8px);} 10%{opacity:1; transform:none;} 75%{opacity:1;} 100%{opacity:0;} }
+  #prompt { position:absolute; left:50%; top:56%; transform:translateX(-50%); font-size:16px; color:#e8dcb8; text-shadow:0 0 6px #000; letter-spacing:1px; }
+  #vignette { position:absolute; inset:0; box-shadow:inset 0 0 180px 60px rgba(120,0,0,0); }
+  #lowhp { position:absolute; inset:0; box-shadow:inset 0 0 160px 60px rgba(150,10,10,.5); opacity:0; transition:opacity .3s; }
+  #boss-name { position:absolute; left:50%; top:8%; transform:translateX(-50%); font-size:26px; letter-spacing:6px; color:#c01222; text-shadow:0 0 14px #400, 0 2px 0 #000; opacity:0; transition:opacity .4s; }
+  #bloodscreen { position:absolute; inset:0; overflow:hidden; }
+  #impactflash { position:absolute; inset:0; background:#fff; opacity:0; transition:opacity .06s linear; }
+  .blood-drop { position:absolute; border-radius:50% 50% 55% 45%; background:radial-gradient(circle at 35% 30%, rgba(190,20,25,.85), rgba(90,4,8,.9)); filter:blur(0.6px); animation:dripfade 1.4s forwards; }
+  @keyframes dripfade { 0%{opacity:1; transform:scale(.4);} 15%{opacity:1; transform:scale(1);} 70%{opacity:.8;} 100%{opacity:0; transform:translateY(14px) scale(1.1);} }
+  .screen { position:fixed; inset:0; display:none; background:radial-gradient(ellipse at center,#14101a 0%,#060509 80%); z-index:10; overflow:auto; }
+  .screen.active { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  h1 { font-size:58px; letter-spacing:14px; color:#b8122a; text-shadow:0 0 24px #500, 0 2px 0 #000; margin:0 0 4px; }
+  h2 { color:#c9b577; letter-spacing:3px; font-weight:normal; margin:8px 0; }
+  .panel { background:rgba(14,12,18,.85); border:1px solid #4a3a28; padding:14px 20px; margin:8px; max-width:960px; }
+  button { pointer-events:auto; background:#241c14; color:#d8cdb4; border:1px solid #6a5230; padding:9px 16px; font-family:inherit; font-size:14px; letter-spacing:1px; cursor:pointer; margin:4px; }
+  button:hover { background:#3a2c1c; border-color:#a8843f; }
+  button.selected { border-color:#e8c85a; background:#3a2c1c; box-shadow:0 0 10px rgba(232,200,90,.3); }
+  button.big { font-size:18px; padding:13px 34px; border-color:#a8843f; }
+  input { pointer-events:auto; background:#14100c; color:#d8cdb4; border:1px solid #6a5230; padding:8px 10px; font-family:inherit; font-size:13px; margin:4px; }
+  input:focus { outline:none; border-color:#a8843f; box-shadow:0 0 8px rgba(232,200,90,.25); }
+  .row { display:flex; flex-wrap:wrap; justify-content:center; }
+  .card { width:220px; margin:6px; padding:12px; border:1px solid #4a3a28; background:rgba(14,12,18,.85); text-align:center; }
+  .card h3 { margin:4px 0; color:#e8c85a; letter-spacing:2px; }
+  .small { font-size:13px; color:#9a8f78; }
+  #pause-hint { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.75); color:#d8cdb4; font-size:22px; letter-spacing:3px; z-index:5; cursor:pointer; }
+  #debugline { position:absolute; left:50%; bottom:132px; transform:translateX(-50%); font-size:13px; color:#9fb7cf; text-shadow:0 0 5px #000; letter-spacing:1px; opacity:.9; }
+  #panel-hint { position:absolute; left:24px; top:20px; font-size:12px; color:#6a6250; text-shadow:0 0 4px #000; letter-spacing:1px; }
+  /* ---- character creator ---- */
+  #screen-creator { z-index:11; }
+  #screen-creator.active { display:block; }
+  .creator-wrap { display:flex; width:100%; height:100%; }
+  .creator-left { width:470px; min-width:400px; height:100%; overflow-y:auto; padding:16px 20px 30px; background:rgba(9,7,12,.94); border-right:1px solid #3a2c1c; box-shadow:8px 0 30px rgba(0,0,0,.6); }
+  .creator-right { flex:1; position:relative; background:radial-gradient(ellipse at 50% 42%, #1a1424 0%, #0a0810 55%, #050408 100%); }
+  #creator-canvas { position:absolute; inset:0; width:100%; height:100%; cursor:grab; }
+  #creator-canvas:active { cursor:grabbing; }
+  .creator-hint { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); font-size:12px; letter-spacing:2px; color:#6a6250; text-shadow:0 0 4px #000; pointer-events:none; }
+  .cr-h1 { font-size:30px; letter-spacing:8px; color:#b8122a; text-shadow:0 0 18px #500, 0 2px 0 #000; margin:4px 0 2px; }
+  .cr-h2 { color:#c9b577; letter-spacing:2px; font-size:13px; margin-bottom:14px; }
+  .cr-section { margin-bottom:16px; }
+  .cr-title { color:#c9b577; letter-spacing:3px; font-size:12px; border-bottom:1px solid #4a3a28; padding-bottom:4px; margin-bottom:8px; }
+  .cr-row { display:flex; align-items:center; justify-content:space-between; margin:2px 0; gap:4px; }
+  .cr-label { color:#9a8f78; font-size:12px; letter-spacing:1px; width:132px; flex:none; }
+  .cr-val { color:#e8dcb8; font-size:12px; flex:1; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cr-arrow { padding:2px 9px; font-size:12px; margin:0 1px; flex:none; }
+  .cr-arrow:disabled { opacity:.35; cursor:default; }
+  .cr-pool { font-size:13px; letter-spacing:2px; margin:4px 0 8px; }
+  .cr-derived { background:rgba(20,16,24,.8); border:1px solid #3a2c1c; padding:8px 10px; font-size:12px; color:#9a8f78; line-height:1.7; margin-top:8px; }
+  .cr-name { width:60%; font-size:15px; }
+  .cr-buttons { margin-top:18px; display:flex; flex-wrap:wrap; gap:4px; }
+  .cr-error { color:#ff6040; font-size:12px; margin-top:8px; min-height:16px; }
+  .cr-preset.selected, .cr-weapon.selected { border-color:#e8c85a; background:#3a2c1c; box-shadow:0 0 10px rgba(232,200,90,.3); }
+
+  /* ================= MAIN MENU (Dark Fantasy Menus style) ================= */
+  #screen-main {
+    background:
+      radial-gradient(ellipse at 50% 40%, #3a0d14 0%, #1a0609 45%, #070305 80%);
+    overflow:hidden;
+  }
+  #screen-main::before { /* ritual circle glow */
+    content:''; position:absolute; left:50%; top:38%; width:620px; height:620px;
+    transform:translate(-50%,-50%); border-radius:50%;
+    background:radial-gradient(circle, rgba(180,20,30,.18) 0%, rgba(120,10,18,0) 60%);
+    pointer-events:none;
+  }
+  .mm-wrap { position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; }
+  .mm-emblem { width:150px; height:150px; margin-bottom:6px; filter:drop-shadow(0 0 18px rgba(180,20,30,.6)); }
+  .mm-title { font-size:74px; letter-spacing:18px; color:#e9d9b0; margin:0;
+    text-shadow:0 0 30px #700, 0 3px 0 #2a0608, 0 0 4px #000; font-weight:bold; }
+  .mm-sub { color:#c9a14a; letter-spacing:5px; font-size:15px; margin:2px 0 26px; text-shadow:0 0 10px #000; }
+  .mm-buttons { display:flex; flex-direction:column; gap:12px; align-items:center; }
+  .mm-btn {
+    pointer-events:auto; width:340px; padding:14px 0; font-size:18px; letter-spacing:4px;
+    color:#e9d9b0; background:linear-gradient(180deg, rgba(40,20,24,.9), rgba(18,8,10,.95));
+    border:2px solid #6a5230; border-radius:3px; cursor:pointer; position:relative;
+    font-family:inherit; text-shadow:0 0 8px #000; transition:all .12s;
+    box-shadow:0 0 0 rgba(232,200,90,0), inset 0 0 14px rgba(0,0,0,.6);
+  }
+  .mm-btn::before { /* gold corner ornaments */
+    content:''; position:absolute; inset:4px; border:1px solid rgba(232,200,90,.25);
+    pointer-events:none; border-radius:2px;
+  }
+  .mm-btn:hover { border-color:#e8c85a; color:#fff0c8; box-shadow:0 0 18px rgba(232,200,90,.35), inset 0 0 14px rgba(0,0,0,.5); transform:translateY(-1px); }
+  .mm-btn .mk { color:#b8122a; }
+  .mm-currency {
+    position:absolute; top:18px; right:20px; z-index:3; display:flex; align-items:center; gap:6px;
+    background:rgba(10,8,12,.8); border:1px solid #4a3a28; padding:6px 12px; border-radius:3px;
+    font-size:14px; color:#e8c85a; letter-shadow:0 0 6px #000;
+  }
+  .mm-currency .coin { width:18px; height:18px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #7fd07f, #1f6e2a); display:inline-block; }
+  .mm-foot { position:absolute; bottom:14px; left:0; right:0; text-align:center; color:#7a3a3a; font-size:11px; letter-spacing:2px; z-index:2; }
+
+  /* ================= LOADOUT (screen 2) — single-screen grid ================= */
+  #screen-loadout.menu-df {
+    display:none; background:radial-gradient(ellipse at 50% 35%, #1c1322 0%, #0a0710 60%, #040308 100%);
+    overflow:hidden; padding:0;
+  }
+  #screen-loadout.menu-df.active { display:grid; grid-template-rows:auto 1fr auto; grid-template-columns:1fr; height:100vh; width:100vw; }
+  .lo-top { display:flex; flex-direction:column; align-items:center; padding:14px 0 4px; position:relative; }
+  .lo-top h1 { font-size:34px; letter-spacing:10px; color:#e9d9b0; margin:0; text-shadow:0 0 20px #700, 0 2px 0 #2a0608; }
+  .lo-top h2 { color:#c9a14a; letter-spacing:3px; font-size:12px; margin:2px 0 0; }
+  .lo-grid { display:grid; grid-template-columns: 1.1fr 1fr 1fr; gap:14px; padding:10px 22px; align-items:stretch; min-height:0; }
+  .lo-col { display:flex; flex-direction:column; min-height:0; }
+  .lo-col-title { color:#c9b577; letter-spacing:3px; font-size:12px; border-bottom:1px solid #4a3a28; padding-bottom:5px; margin-bottom:8px; text-align:center; }
+  .lo-classes { display:flex; flex-direction:column; gap:8px; overflow:hidden; }
+  .lo-class {
+    flex:1; pointer-events:auto; text-align:left; background:rgba(14,10,16,.82); border:1px solid #4a3a28;
+    border-radius:3px; padding:8px 12px; cursor:pointer; position:relative; transition:all .12s; color:#d8cdb4; font-family:inherit;
+  }
+  .lo-class:hover { border-color:#a8843f; background:rgba(28,20,28,.9); }
+  .lo-class.selected { border-color:#e8c85a; box-shadow:0 0 12px rgba(232,200,90,.3); background:rgba(34,24,28,.92); }
+  .lo-class h3 { margin:0 0 2px; color:#e8c85a; letter-spacing:2px; font-size:15px; }
+  .lo-class .desc { font-size:11px; color:#9a8f78; line-height:1.3; }
+  .lo-class .stats { font-size:11px; color:#b8ad95; margin-top:3px; }
+  .lo-class .wpn { font-size:11px; color:#c9a14a; margin-top:2px; }
+  .lo-center { align-items:center; justify-content:flex-start; }
+  .lo-champ-canvas { width:100%; flex:1; min-height:0; border:2px solid #5a4630; border-radius:3px; background:radial-gradient(ellipse at 50% 40%, #181020 0%, #0a0710 70%); box-shadow:inset 0 0 30px rgba(0,0,0,.7); }
+  .lo-champ-name { color:#e8c85a; font-size:16px; letter-spacing:2px; margin-top:6px; }
+  .lo-champ-nav { display:flex; gap:8px; margin-top:4px; }
+  .lo-stash { display:flex; flex-direction:column; gap:5px; overflow-y:auto; min-height:0; }
+  .lo-eq-btn { pointer-events:auto; text-align:left; background:rgba(14,10,16,.82); border:1px solid #4a3a28; color:#cbbfa6; padding:6px 10px; font-size:12px; font-family:inherit; border-radius:3px; cursor:pointer; }
+  .lo-eq-btn:hover { border-color:#a8843f; }
+  .lo-eq-btn.selected { border-color:#e8c85a; color:#e8c85a; }
+  .lo-eq-btn:disabled { opacity:.45; cursor:default; }
+  .lo-gold { text-align:center; color:#e8c85a; font-size:15px; letter-spacing:2px; margin:6px 0; }
+  .lo-bottom { display:flex; gap:12px; justify-content:center; align-items:center; padding:10px 0 16px; }
+  .lo-bottom .big { font-size:17px; padding:12px 30px; }
+  .lo-controls { font-size:10px; color:#6a6250; text-align:center; letter-spacing:1px; max-width:760px; margin:0 auto; line-height:1.4; }
+
+
+
+  /* ================= DARK FANTASY CREATOR SKIN =================
+     Sprites: public/assets/hud/DarkFantasy/* + Icons_Weapons/* + Icons_Stats/*
+     Frames are drawn on ::before overlays so the gold tint filter never
+     touches the text/controls underneath. Layout & logic untouched. */
+  :root {
+    --df: './assets/hud/DarkFantasy/';
+    --gold:#e8c85a; --gold-dim:#a8843f; --gold-ink:#f0dfa6;
+    --gild: sepia(1) saturate(3.2) hue-rotate(-14deg) brightness(1.05) contrast(1.05);
+  }
+  .creator-left {
+    background:
+      linear-gradient(rgba(9,7,12,.93), rgba(9,7,12,.97)),
+      url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Large_02_Background-DMhGtCeX.png') center/cover no-repeat;
+    border-right:2px solid #6a5230;
+    box-shadow:8px 0 34px rgba(0,0,0,.75), inset -1px 0 0 rgba(232,200,90,.18);
+  }
+  .creator-left::-webkit-scrollbar { width:9px; }
+  .creator-left::-webkit-scrollbar-track { background:#0b0910; }
+  .creator-left::-webkit-scrollbar-thumb { background:linear-gradient(#6a5230,#3a2c1c); border:1px solid #8a6c38; }
+
+  /* --- ornamental section panel --- */
+  .cr-panel { position:relative; padding:20px 18px 16px; margin-bottom:20px; background:
+      linear-gradient(rgba(18,14,22,.86), rgba(10,8,14,.92)); }
+  .cr-panel::before {
+    content:''; position:absolute; inset:-14px; pointer-events:none; z-index:0;
+    border:26px solid transparent;
+    border-image:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Large_02-CxL4F6b0.png') 110 stretch;
+    filter:var(--gild) drop-shadow(0 0 6px rgba(0,0,0,.9));
+    opacity:.95;
+  }
+  .cr-panel > * { position:relative; z-index:1; }
+
+  /* --- ornamental section header (banner bar) --- */
+  .cr-banner { position:relative; height:34px; margin:-6px 0 12px; display:flex;
+    align-items:center; justify-content:center; }
+  .cr-banner::before {
+    content:''; position:absolute; inset:0 -6px; z-index:0;
+    background:url('/grimhold/assets/SPR_DarkFantasy_Frame_Bar_05-BDy0_3sb.png') center/100% 100% no-repeat;
+    filter:var(--gild); opacity:.9;
+  }
+  .cr-banner .cr-title { position:relative; z-index:1; border:none; margin:0; padding:0;
+    color:var(--gold-ink); letter-spacing:4px; font-size:12px;
+    text-shadow:0 0 8px rgba(232,200,90,.5), 0 2px 0 #000; }
+
+  /* --- gilded buttons (CONFIRM / RANDOMIZE / RESET / BACK / presets) --- */
+  .creator-left button,
+  .cr-buttons button {
+    position:relative; background:linear-gradient(#2a2018,#171009);
+    border:1px solid #7a5f31; color:#e0d3b0; letter-spacing:2px;
+    text-shadow:0 1px 0 #000; transition:all .12s ease;
+  }
+  .creator-left button:hover {
+    background:linear-gradient(#4a3720,#2a1d10); border-color:var(--gold);
+    color:#fff3cf; box-shadow:0 0 12px rgba(232,200,90,.35), inset 0 0 10px rgba(232,200,90,.12);
+  }
+  .creator-left button:disabled { opacity:.32; box-shadow:none; }
+  .cr-buttons { margin-top:20px; gap:6px; }
+  .cr-buttons button {
+    flex:1 1 40%; padding:11px 8px; font-size:13px;
+    background:
+      linear-gradient(rgba(30,22,12,.82), rgba(14,10,6,.9)),
+      url('/grimhold/assets/SPR_DarkFantasy_Box_Hotbar_03-D_xn0syA.png') center/100% 100% no-repeat;
+    border:1px solid #8a6c38;
+  }
+  #cr-confirm {
+    flex:1 1 100%; font-size:17px; padding:14px 8px; color:#ffeaa8;
+    border:2px solid var(--gold);
+    background:
+      linear-gradient(rgba(58,40,14,.85), rgba(24,16,6,.92)),
+      url('/grimhold/assets/SPR_DarkFantasy_Frame_HotBar_01-B4_6B6_9.png') center/100% 100% no-repeat;
+    box-shadow:0 0 16px rgba(232,200,90,.28), inset 0 0 18px rgba(232,200,90,.10);
+    animation:crPulse 3.2s ease-in-out infinite;
+  }
+  #cr-confirm:hover { box-shadow:0 0 26px rgba(232,200,90,.55), inset 0 0 22px rgba(232,200,90,.2); }
+  @keyframes crPulse { 0%,100%{ border-color:#a8843f; } 50%{ border-color:#ffe08a; } }
+
+  /* --- ORIGIN / archetype chips --- */
+  .cr-preset {
+    padding:8px 13px; font-size:12px;
+    background:linear-gradient(#241a10,#120c07) !important;
+  }
+  .cr-preset.selected {
+    border-color:var(--gold) !important; color:#ffeaa8 !important;
+    box-shadow:0 0 14px rgba(232,200,90,.45), inset 0 0 12px rgba(232,200,90,.15) !important;
+  }
+
+  /* --- ◀ ▶ / +- arrows as small gilded studs --- */
+  .cr-arrow { padding:3px 10px; font-size:12px; border-radius:2px;
+    background:linear-gradient(#2c2116,#150e08) !important; border:1px solid #6a5230 !important; }
+  .cr-arrow:hover:not(:disabled) { border-color:var(--gold) !important; color:#ffeaa8 !important; }
+
+  /* --- appearance rows framed like inventory bars --- */
+  .cr-row { padding:3px 6px; margin:3px 0;
+    background:linear-gradient(90deg, rgba(40,30,18,.32), rgba(12,9,14,.18));
+    border-left:2px solid #5a4526; }
+  .cr-row:hover { border-left-color:var(--gold); background:linear-gradient(90deg, rgba(60,44,24,.45), rgba(12,9,14,.2)); }
+  .cr-val { color:var(--gold-ink); }
+
+  /* --- stat rows with icons --- */
+  .cr-stat-icon { width:20px; height:20px; flex:none; margin-right:6px;
+    background-size:contain; background-repeat:no-repeat; background-position:center;
+    filter:var(--gild); opacity:.9; }
+  .cr-pool { color:var(--gold); text-shadow:0 0 8px rgba(232,200,90,.4); }
+  .cr-derived {
+    border:1px solid #6a5230; background:
+      linear-gradient(rgba(20,15,10,.9), rgba(10,8,12,.94)),
+      url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Medium_08_Background-DTK4-8yQ.png') center/cover no-repeat;
+    box-shadow:inset 0 0 16px rgba(0,0,0,.8);
+  }
+
+  /* --- WEAPON SLOTS (Box_Hotbar / Frame_Box_Small frames + weapon icons) --- */
+  #cr-weapons { gap:12px; }
+  .cr-weapon {
+    position:relative; width:104px; padding:0 0 6px; margin:0;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    background:
+      linear-gradient(rgba(20,15,10,.55), rgba(8,6,10,.75)),
+      url('/grimhold/assets/SPR_DarkFantasy_Box_Hotbar_02-C3s-F68_.png') center/100% 100% no-repeat !important;
+    border:1px solid #5a4526 !important;
+  }
+  .cr-weapon .cr-slot {
+    position:relative; width:72px; height:72px; margin:8px auto 2px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .cr-weapon .cr-slot::before {
+    content:''; position:absolute; inset:-8px; pointer-events:none;
+    background:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Small_01-Cp9iMoZ4.png') center/100% 100% no-repeat;
+    filter:var(--gild); opacity:.85;
+  }
+  .cr-weapon .cr-slot::after {
+    content:''; position:absolute; inset:2px; z-index:-1;
+    background:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Small_01_Background-B-9lKPrj.png') center/100% 100% no-repeat;
+    opacity:.55;
+  }
+  .cr-weapon .cr-slot img {
+    width:56px; height:56px; object-fit:contain;
+    filter:drop-shadow(0 2px 4px #000); transition:transform .15s ease;
+  }
+  .cr-weapon:hover .cr-slot img { transform:scale(1.08); }
+  .cr-weapon .cr-wname { font-size:11px; letter-spacing:1px; color:#c9b577; }
+  .cr-weapon .cr-wstat { font-size:10px; letter-spacing:1px; color:#8d8266; }
+  .cr-weapon.selected {
+    border-color:var(--gold) !important;
+    box-shadow:0 0 16px rgba(232,200,90,.45), inset 0 0 14px rgba(232,200,90,.12) !important;
+  }
+  .cr-weapon.selected .cr-slot::before { opacity:1; filter:var(--gild) drop-shadow(0 0 6px rgba(232,200,90,.7)); }
+  .cr-weapon.selected .cr-wname { color:#ffeaa8; }
+
+  /* --- name input --- */
+  .cr-name { width:70%; background:linear-gradient(#100c08,#1a140c); border:1px solid #6a5230;
+    color:var(--gold-ink); letter-spacing:2px; text-align:center; }
+  .cr-name:focus { border-color:var(--gold); box-shadow:0 0 12px rgba(232,200,90,.3); }
+
+  /* --- title --- */
+  .cr-h1 { text-shadow:0 0 22px #600, 0 0 40px rgba(232,200,90,.2), 0 2px 0 #000; }
+  .cr-hint-line { font-size:11px; color:#7d7360; letter-spacing:1px; margin:-6px 0 8px; font-style:italic; }
+  .cr-divider { height:14px; margin:2px 0 14px;
+    background:url('/grimhold/assets/SPR_DarkFantasy_Bar_05-DzsS7J1k.png') center/contain no-repeat;
+    filter:var(--gild); opacity:.75; }
+  /* ================= LOBBY — dark fantasy ornamented ================= */
+  #screen-lobby { background:radial-gradient(ellipse at 50% 30%, #1a1220 0%, #0a0710 55%, #040308 100%); }
+  #screen-lobby h1 { font-size:46px; letter-spacing:12px; }
+
+  /* ornate hanging banners flanking the lobby title */
+  .lobby-title-wrap { position:relative; display:flex; align-items:center; justify-content:center; gap:26px; }
+  .lobby-banner { width:54px; height:104px; flex:none; opacity:.85;
+    background:url('/grimhold/assets/SPR_DarkFantasy_Greeble_Banner_03-8VUGxUHm.png') center/contain no-repeat;
+    filter:drop-shadow(0 3px 6px #000); }
+  .lobby-banner.right { transform:scaleX(-1); }
+
+  /* the room list gets a large carved box frame around it */
+  .lobby-listbox { position:relative; width:560px; max-width:94vw; margin:12px 0; padding:26px 30px;
+    background:rgba(10,8,14,.82);
+    border-style:solid; border-width:34px;
+    border-image:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Large_02-CxL4F6b0.png') 70 fill / 34px / 0 stretch;
+    box-shadow:0 0 34px rgba(0,0,0,.85); }
+  .lobby-listbox-inner { min-height:64px; }
+
+  /* one room = one ornamental bar panel */
+  .lobby-row { position:relative; display:flex; align-items:center; gap:14px;
+    padding:6px 14px; margin:10px 0; min-height:58px; text-align:left;
+    background:linear-gradient(#171120,#0d0a13);
+    border-style:solid; border-width:24px 34px;
+    border-image:url('/grimhold/assets/SPR_DarkFantasy_Frame_Bar_17-eYl44eqV.png') 54 78 fill / 24px 34px / 0 stretch;
+    transition:filter .15s, transform .12s; }
+  .lobby-row:hover { filter:brightness(1.22) saturate(1.15); transform:translateY(-1px); }
+  .lobby-row .lobby-gem { width:18px; height:18px; flex:none;
+    background:url('/grimhold/assets/SPR_DarkFantasy_Greeble_Gem_01_Red-Bl3be8tQ.png') center/contain no-repeat;
+    filter:drop-shadow(0 0 6px rgba(220,40,40,.7)); }
+  .lobby-row .lobby-meta { flex:1; min-width:0; }
+  .lobby-row .lobby-name { color:#e8c85a; font-size:16px; letter-spacing:2px; text-shadow:0 0 8px #000, 0 1px 0 #000;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lobby-row .lobby-sub { font-size:12px; color:#9a8f78; letter-spacing:1px; }
+  .lobby-row .lobby-sub b { color:#c9b577; font-weight:normal; }
+
+  /* JOIN — small ornate stone button */
+  .lobby-join { flex:none; background:transparent; color:#e8dcb8;
+    font-family:inherit; font-size:13px; letter-spacing:3px; cursor:pointer; padding:6px 12px; margin:0;
+    border-style:solid; border-width:16px 20px;
+    border-image:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Small_01-Cp9iMoZ4.png') 42 fill / 16px 20px / 0 stretch;
+    text-shadow:0 0 6px #000, 0 1px 0 #000; transition:filter .12s, transform .1s; }
+  .lobby-join:hover { filter:brightness(1.35) saturate(1.2); color:#ffe9a8; }
+  .lobby-join:active { transform:translateY(1px); }
+
+  /* empty-list notice */
+  .lobby-empty { text-align:center; color:#7e7462; font-size:13px; letter-spacing:2px; padding:18px 0;
+    text-shadow:0 0 6px #000; }
+
+  /* CREATE panel */
+  .lobby-create { position:relative; width:560px; max-width:94vw; text-align:center;
+    padding:22px 28px; margin:6px 0;
+    background:rgba(12,9,16,.85);
+    border-style:solid; border-width:30px;
+    border-image:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Medium_08-B1bPBYkG.png') 96 fill / 30px / 0 stretch;
+    box-shadow:0 0 26px rgba(0,0,0,.8); }
+  .lobby-create .lobby-heading { color:#c9b577; letter-spacing:5px; font-size:14px; text-shadow:0 0 8px #000; }
+
+  /* CREATE LOBBY — big ornate button */
+  #btn-create-lobby { background:transparent; color:#ffd98a;
+    font-family:inherit; font-size:15px; letter-spacing:4px; cursor:pointer; padding:8px 14px; margin:4px;
+    border-style:solid; border-width:20px 30px;
+    border-image:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Medium_10-kaq3sBnw.png') 96 fill / 20px 30px / 0 stretch;
+    text-shadow:0 0 10px rgba(255,180,60,.5), 0 1px 0 #000; transition:filter .14s, transform .1s; }
+  #btn-create-lobby:hover { filter:brightness(1.35) saturate(1.25); color:#fff0c0; }
+  #btn-create-lobby:active { transform:translateY(1px); }
+  #btn-create-lobby:disabled { filter:grayscale(.7) brightness(.65); cursor:default; }
+
+  /* connection status strip */
+  .lobby-conn { display:flex; align-items:center; justify-content:center; gap:10px;
+    margin:4px 0 2px; padding:6px 22px; min-height:26px;
+    font-size:12px; letter-spacing:3px; color:#9a8f78; text-shadow:0 0 6px #000;
+    border-style:solid; border-width:14px 30px;
+    border-image:url('/grimhold/assets/SPR_DarkFantasy_Frame_Bar_01-BXV_VKvx.png') 40 120 fill / 14px 30px / 0 stretch; }
+  .lobby-conn .dot { width:9px; height:9px; border-radius:50%; flex:none; background:#6a6250;
+    box-shadow:0 0 6px currentColor; }
+  .lobby-conn.is-off  { color:#8b8272; }
+  .lobby-conn.is-off .dot { background:#5b5346; box-shadow:none; }
+  .lobby-conn.is-wait { color:#c9b577; }
+  .lobby-conn.is-wait .dot { background:#e8c85a; box-shadow:0 0 8px #e8c85a; animation:connpulse 1s infinite ease-in-out; }
+  .lobby-conn.is-on   { color:#8fe08f; }
+  .lobby-conn.is-on .dot { background:#5fb84a; box-shadow:0 0 9px #5fb84a; }
+  .lobby-conn.is-host { color:#9fd0ff; }
+  .lobby-conn.is-host .dot { background:#6fb7ff; box-shadow:0 0 9px #6fb7ff; }
+  .lobby-conn.is-err  { color:#ff7a5c; }
+  .lobby-conn.is-err .dot { background:#ff4030; box-shadow:0 0 9px #b8122a; }
+  @keyframes connpulse { 0%,100%{opacity:.35;} 50%{opacity:1;} }
+
+  /* member rows inside a joined room */
+  .lobby-row.member { min-height:48px; border-width:22px 34px;
+    border-image-width:22px 34px; }
+  .lobby-row.member .lobby-name { font-size:15px; }
+  .lobby-row.member .tag-host { color:#6fb7ff; letter-spacing:2px; font-size:12px; }
+  .lobby-row.member .tag-you { color:#c9b577; letter-spacing:2px; font-size:12px; }
+
+  #screen-lobby input { background:#100c14; border:1px solid #6a5230; box-shadow:inset 0 0 10px rgba(0,0,0,.7); }
+
+  /* ================= DARK-FANTASY MAIN MENU (AAA dressing) ================= */
+  :root {
+    --df: './assets/hud/DarkFantasy/';
+    --gold: #e8c85a;
+    --gold-dim: #a8843f;
+    --parchment: #ddd0b0;
+  }
+  /* --- backdrop: deep violet gradient + vignette + stone grain --- */
+  #screen-loadout.menu-df, #screen-lobby.menu-df {
+    background:
+      radial-gradient(ellipse 90% 70% at 50% 28%, rgba(96,54,140,.34) 0%, rgba(38,20,58,.30) 45%, rgba(0,0,0,0) 72%),
+      radial-gradient(ellipse at 50% 120%, #2a1440 0%, #150a24 40%, #08050e 100%),
+      linear-gradient(#0b0713, #05030a);
+    padding: 26px 0 48px;
+  }
+  /* flex-centering + overflow clips content above the scroll origin — anchor to top */
+  #screen-loadout.menu-df.active, #screen-lobby.menu-df.active { justify-content:flex-start; }
+  #screen-loadout.menu-df::before, #screen-lobby.menu-df::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    box-shadow: inset 0 0 260px 90px rgba(0,0,0,.92), inset 0 0 90px 20px rgba(20,4,40,.6);
+  }
+  /* drifting embers / dust motes */
+  #screen-loadout.menu-df::after, #screen-lobby.menu-df::after {
+    content:''; position:fixed; inset:-20%; pointer-events:none; z-index:0; opacity:.35;
+    background:
+      radial-gradient(1.6px 1.6px at 12% 30%, rgba(255,196,110,.9), transparent 60%),
+      radial-gradient(1.4px 1.4px at 78% 18%, rgba(255,170,90,.8), transparent 60%),
+      radial-gradient(1.8px 1.8px at 42% 72%, rgba(232,200,90,.7), transparent 60%),
+      radial-gradient(1.2px 1.2px at 88% 62%, rgba(200,150,255,.7), transparent 60%),
+      radial-gradient(1.5px 1.5px at 26% 88%, rgba(255,180,120,.7), transparent 60%),
+      radial-gradient(1.3px 1.3px at 62% 44%, rgba(255,220,160,.6), transparent 60%);
+    animation: emberdrift 26s linear infinite;
+  }
+  @keyframes emberdrift { 0%{transform:translate3d(0,0,0);} 100%{transform:translate3d(-3%,-7%,0);} }
+  .menu-df > * { position:relative; z-index:1; }
+
+  /* --- ornamental title: GRIMHOLD inside a stone arch + gold bar plaque --- */
+  .df-title { position:relative; width:min(760px, 94vw); margin:2px auto 6px; text-align:center;
+    padding: 54px 0 40px; }
+  .df-title .arch { position:absolute; left:50%; top:0; transform:translateX(-50%);
+    width:min(560px,88vw); height:100%;
+    background:url('/grimhold/assets/SPR_DarkFantasy_Frame_Arch_Medium_02_Background-DJJPlIUh.png') center/100% 100% no-repeat;
+    opacity:.55; filter:hue-rotate(-18deg) saturate(.75) brightness(.62) drop-shadow(0 0 34px rgba(120,50,190,.35)); }
+  .df-title .plaque { position:absolute; left:50%; top:54px; transform:translateX(-50%);
+    width:min(720px,94vw); height:96px; pointer-events:none;
+    background:url('/grimhold/assets/SPR_DarkFantasy_Frame_Bar_05-BDy0_3sb.png') center/100% 100% no-repeat;
+    filter: sepia(1) saturate(2.6) hue-rotate(-14deg) brightness(1.05)
+            drop-shadow(0 0 16px rgba(232,200,90,.30)) drop-shadow(0 4px 10px #000); }
+  .df-title h1 { position:relative; z-index:2; margin:0; font-size:clamp(38px,7.4vw,74px);
+    letter-spacing:clamp(8px,2vw,18px); font-weight:bold;
+    background:linear-gradient(#fff4cf 4%, #e8c85a 30%, #9e6f22 58%, #f3dc9a 74%, #7a4f16 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter: drop-shadow(0 0 22px rgba(184,18,42,.55)) drop-shadow(0 2px 0 #000) drop-shadow(0 0 4px #000);
+    animation: titleglow 5.5s ease-in-out infinite; }
+  @keyframes titleglow {
+    0%,100% { filter: drop-shadow(0 0 18px rgba(184,18,42,.45)) drop-shadow(0 2px 0 #000) drop-shadow(0 0 4px #000); }
+    50%     { filter: drop-shadow(0 0 34px rgba(232,120,60,.62)) drop-shadow(0 2px 0 #000) drop-shadow(0 0 4px #000); }
+  }
+  .df-title h2 { position:relative; z-index:2; margin:18px 0 0; font-size:clamp(10px,1.5vw,14px);
+    letter-spacing:clamp(3px,.9vw,7px); color:#b9a377; text-shadow:0 0 10px #000; }
+  .df-title .skull { position:absolute; z-index:2; top:12px; width:56px; height:56px;
+    background:url('/grimhold/assets/SPR_DarkFantasy_Greeble_Skull_01-CsKD5Ams.png') center/contain no-repeat;
+    filter:sepia(.7) saturate(1.6) hue-rotate(-16deg) brightness(.85) drop-shadow(0 2px 6px #000); opacity:.9; }
+  .df-title .skull.l { left:6%; } .df-title .skull.r { right:6%; }
+  .df-rule { width:min(720px,92vw); height:34px; margin:2px auto 10px;
+    background:url('/grimhold/assets/SPR_DarkFantasy_Frame_Bar_Notch_02-xvlEdOXC.png') center/100% 100% no-repeat;
+    filter:sepia(1) saturate(2.2) hue-rotate(-16deg) brightness(.9) drop-shadow(0 2px 6px #000); opacity:.85; }
+
+  /* --- stone/gold buttons (9-slice from the pack) --- */
+  .menu-df button, .menu-df .df-btn {
+    position:relative; background:transparent; color:var(--parchment);
+    border:20px solid transparent; border-image-source:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Medium_08-B1bPBYkG.png');
+    border-image-slice:120 fill; border-image-width:20px; border-image-repeat:stretch;
+    padding:4px 14px; font-family:inherit; font-size:14px; letter-spacing:2px; cursor:pointer; margin:5px;
+    text-shadow:0 0 6px #000, 0 1px 0 #000;
+    filter:sepia(.45) saturate(1.25) hue-rotate(-12deg) brightness(.92);
+    transition:filter .16s, color .16s, transform .12s;
+  }
+  .menu-df button:hover, .menu-df .df-btn:hover {
+    color:#fff2d0; filter:sepia(.6) saturate(1.9) hue-rotate(-12deg) brightness(1.22)
+      drop-shadow(0 0 12px rgba(232,200,90,.45)); transform:translateY(-1px);
+  }
+  .menu-df button:active { transform:translateY(1px); }
+  .menu-df button.selected, .menu-df button.cr-preset.selected {
+    color:var(--gold); box-shadow:none;
+    filter:sepia(.75) saturate(2.4) hue-rotate(-14deg) brightness(1.3)
+      drop-shadow(0 0 14px rgba(232,200,90,.6));
+  }
+  .menu-df button:disabled { opacity:.45; cursor:default; filter:grayscale(.8) brightness(.6); }
+  /* hero buttons — wide ornate gold bar */
+  .menu-df button.big {
+    font-size:clamp(15px,1.6vw,19px); letter-spacing:clamp(3px,.7vw,6px); color:var(--gold);
+    padding:10px 30px; min-width:340px; border-width:26px 54px;
+    border-image-source:url('/grimhold/assets/SPR_DarkFantasy_Frame_Bar_18_Variant_01-CkkqOmvE.png');
+    border-image-slice:90 150 90 150 fill; border-image-width:26px 54px;
+    filter:sepia(1) saturate(2.1) hue-rotate(-16deg) brightness(.95) drop-shadow(0 3px 8px #000);
+  }
+  .menu-df button.big:hover {
+    color:#fff6d4;
+    filter:sepia(1) saturate(2.8) hue-rotate(-16deg) brightness(1.28)
+      drop-shadow(0 0 18px rgba(232,200,90,.6)) drop-shadow(0 3px 8px #000);
+  }
+  .menu-df button.big#btn-training { filter:sepia(1) saturate(1.2) hue-rotate(150deg) brightness(1.0) drop-shadow(0 3px 8px #000); color:#bcd8f2; }
+  .menu-df button.big#btn-training:hover { filter:sepia(1) saturate(1.8) hue-rotate(150deg) brightness(1.3) drop-shadow(0 0 16px rgba(110,183,255,.5)); color:#e6f4ff; }
+  .menu-df button.big#btn-lobby { filter:sepia(1) saturate(1.5) hue-rotate(165deg) brightness(1.05) drop-shadow(0 3px 8px #000); color:#cfe6ff; }
+  .menu-df button.big#btn-lobby:hover { filter:sepia(1) saturate(2.2) hue-rotate(165deg) brightness(1.35) drop-shadow(0 0 18px rgba(110,183,255,.6)); color:#f0f8ff; }
+  .menu-df .lobby-join { border:1px solid #6fb7ff; filter:none; }
+  .df-actions { display:flex; flex-direction:column; align-items:center; gap:2px; margin-top:14px; }
+
+  /* --- panels & cards framed with pack art --- */
+  .menu-df .panel {
+    background:rgba(10,7,16,.82); border:none; padding:16px 26px; margin:10px;
+    border:34px solid transparent;
+    border-image-source:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Large_02-CxL4F6b0.png');
+    border-image-slice:150 fill; border-image-width:34px; border-image-repeat:stretch;
+    box-shadow:0 8px 40px rgba(0,0,0,.7);
+  }
+  .menu-df .card {
+    width:228px; margin:8px; padding:14px 16px; text-align:center; background:rgba(9,6,14,.8);
+    border:26px solid transparent;
+    border-image-source:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Medium_10-kaq3sBnw.png');
+    border-image-slice:110 fill; border-image-width:26px; border-image-repeat:stretch;
+    transition:transform .16s, filter .16s;
+  }
+  .menu-df .card:hover { transform:translateY(-3px); filter:brightness(1.12) drop-shadow(0 0 16px rgba(232,200,90,.22)); }
+  .menu-df .card h3 { margin:2px 0 6px; color:var(--gold); letter-spacing:3px; font-size:17px; text-shadow:0 0 10px rgba(232,200,90,.35), 0 2px 0 #000; }
+  .menu-df .small { color:#a3977d; }
+  .menu-df h2 { color:#c9b577; }
+  .menu-df input {
+    background:rgba(8,5,12,.9); color:var(--parchment); border:1px solid var(--gold-dim);
+    box-shadow:inset 0 0 12px rgba(0,0,0,.8); padding:9px 12px; letter-spacing:1px;
+  }
+  .menu-df .lobby-row {
+    background:rgba(12,8,18,.85); border:none;
+    border:22px solid transparent;
+    border-image-source:url('/grimhold/assets/SPR_DarkFantasy_Frame_Box_Medium_10-kaq3sBnw.png');
+    border-image-slice:110 fill; border-image-width:22px; border-image-repeat:stretch;
+  }
+  .df-controls { width:min(980px,94vw); margin:14px auto 0; font-size:12px; line-height:1.9;
+    color:#8c8168; text-align:center; padding:12px 18px; background:rgba(6,4,10,.6);
+    border-top:1px solid rgba(168,132,63,.25); border-bottom:1px solid rgba(168,132,63,.25); }
+  .df-controls b { color:#c9b577; }
+</style>
+
+  <script type="module" crossorigin src="/grimhold/assets/index-Ct11u-cy.js"></script>
+</head>
+<body>
+<div id="hud">
+  <div id="weapon-icon"></div>
+  <div id="weapon-name"></div>
+  <div id="slots"></div>
+  <div class="statbar" id="stbar"><div class="frame"></div><div class="track"><div class="fill"></div></div></div>
+  <div class="statbar" id="hpbar"><div class="frame"></div><div class="track"><div class="fill"></div></div></div>
+  <div id="gate-status"></div>
+  <div id="gold"></div>
+  <div id="crosshair"></div>
+  <div id="chargering"></div>
+  <div id="dmgnums"></div>
+  <div id="killfeed"></div>
+  <div id="kills"></div>
+  <div id="hitmarker">&#10005;</div>
+  <div id="prompt"></div>
+  <div id="notify"></div>
+  <div id="vignette"></div>
+  <div id="lowhp"></div>
+  <div id="boss-name">&#9876; GATE WARDEN &#9876;</div>
+  <div id="bloodscreen"></div>
+  <div id="impactflash"></div>
+  <div id="debugline"></div>
+  <div id="flow-meter" style="position:absolute;left:18px;bottom:64px;display:none;font:12px monospace;color:#9fe;letter-spacing:2px;text-shadow:0 0 6px #000;">FLOW <span id="flow-segs"></span></div>
+  <div id="panel-hint">` TUNING</div>
+</div>
+<div id="pause-hint">PAUSED &mdash; CLICK TO RESUME</div>
+<div class="screen" id="screen-main">
+  <div class="mm-currency"><span class="coin"></span><span id="mm-gold">0</span></div>
+  <div class="mm-wrap">
+    <img class="mm-emblem" src="/grimhold/assets/SPR_DarkFantasy_Greeble_Skull_01-CsKD5Ams.png" alt="" />
+    <h1 class="mm-title">GRIMHOLD</h1>
+    <div class="mm-sub">A MEDIEVAL LOOT-EXTRACTION SLASHER</div>
+    <div class="mm-buttons">
+      <button class="mm-btn" id="btn-play">PLAY <span class="mk">▸</span></button>
+      <button class="mm-btn" id="btn-lobby">ONLINE LOBBY</button>
+      <button class="mm-btn" id="btn-training">TRAINING</button>
+      <button class="mm-btn" id="btn-settings">SETTINGS</button>
+    </div>
+  </div>
+  <div class="mm-foot">A HERMES × SYNTY PRODUCTION</div>
+</div>
+<div class="screen" id="screen-loadout"></div>
+<div class="screen" id="screen-result"></div>
+<div class="screen" id="screen-creator"></div>
+<div class="screen" id="screen-lobby"></div>
+
+</body>
+</html>
