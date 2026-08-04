@@ -145,4 +145,4 @@ function deriveEnemySpawns(bbox, floors) {
   return out;
 }
 
-export const CASTLE_URL = `https://github.com/kisa134/grimhold/releases/download/castle-assets/cathedral.glb`;
+export const CASTLE_URL = `https://deposits-retreat-grain-analyze.trycloudflare.com/cathedral.glb`;
