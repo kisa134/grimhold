@@ -20,12 +20,20 @@ export function initUI(g) {
   game = g;
   for (const id of ['hud', 'weapon-name', 'slots', 'hpbar', 'stbar', 'gate-status', 'gold',
     'hitmarker', 'prompt', 'notify', 'vignette', 'lowhp', 'pause-hint', 'boss-name', 'bloodscreen',
-    'crosshair', 'dmgnums', 'killfeed', 'kills', 'chargering', 'debugline',
+    'crosshair', 'weapon-icon', 'dmgnums', 'killfeed', 'kills', 'chargering', 'debugline',
     'screen-loadout', 'screen-result', 'screen-lobby',
     'flow-meter']) {
     els[id] = document.getElementById(id);
   }
   els['impactflash'] = document.getElementById('impactflash');
+  // crosshair image (Synty reticle)
+  const ch = els['crosshair'];
+  if (ch && !ch.firstChild) {
+    const base = (import.meta.env && import.meta.env.BASE_URL) || '/';
+    const img = document.createElement('img');
+    img.src = base + 'assets/hud/Reticles/SPR_HUD_DarkFantasy_Reticle_Arc_Medium_01_Variant_01.png';
+    ch.appendChild(img);
+  }
 }
 
 export function showHUD(on) {
@@ -35,11 +43,23 @@ export function showHUD(on) {
 export function updateHUD() {
   const p = game.player;
   if (!p) return;
-  els['hpbar'].firstElementChild.style.width = Math.max(0, (p.hp / p.stats.maxHp) * 100) + '%';
-  els['stbar'].firstElementChild.style.width = Math.max(0, (p.stamina / p.stats.maxStamina) * 100) + '%';
+  const hpFill = els['hpbar'].querySelector('.fill');
+  const stFill = els['stbar'].querySelector('.fill');
+  hpFill.style.width = Math.max(0, (p.hp / p.stats.maxHp) * 100) + '%';
+  stFill.style.width = Math.max(0, (p.stamina / p.stats.maxStamina) * 100) + '%';
   const ws = p.wstats;
   els['weapon-name'].textContent = ws.itemName + (p.blocking ? '  [BLOCKING]' : '');
   els['weapon-name'].style.color = ws.color;
+  const ICON = { sword: 'ICON_SM_Wep_Sword_01_DarkFantasy.png', axe: 'ICON_SM_Wep_Axe_01_DarkFantasy.png', mace: 'ICON_SM_Wep_Mace_01_DarkFantasy.png' };
+  const base = (import.meta.env && import.meta.env.BASE_URL) || '/';
+  const ic = els['weapon-icon'];
+  if (ic && !ic.firstChild) {
+    const img = document.createElement('img');
+    img.src = base + 'assets/hud/Icons_Weapons/' + (ICON[ws.key] || ICON.sword);
+    ic.appendChild(img);
+  } else if (ic && ic.firstChild) {
+    ic.firstChild.src = base + 'assets/hud/Icons_Weapons/' + (ICON[ws.key] || ICON.sword);
+  }
   els['slots'].textContent = p.slots.map((s, i) =>
     `${i + 1}:${i === p.slot ? '[' + weaponStats(s).itemName + ']' : weaponStats(s).itemName}`).join('  ');
   els['gold'].textContent = game.training

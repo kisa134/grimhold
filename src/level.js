@@ -490,12 +490,13 @@ export function buildLevel(scene) {
   // ==========================================================================
   function floorHeightAt(x, z, refY) {
     let best = -Infinity;
+    const step = (CFG.player && CFG.player.stepHeight) || 0.6;
     for (const f of floors) {
       if (x >= f.x1 - 0.05 && x <= f.x2 + 0.05 && z >= f.z1 - 0.05 && z <= f.z2 + 0.05) {
-        if (f.y <= refY + 0.55 && f.y > best) best = f.y;
+        if (f.y <= refY + step && f.y > best) best = f.y;
       }
     }
-    return best === -Infinity ? refY : best;
+    return best === -Infinity ? refY - 8 : best;
   }
 
   function collideCircle(pos, radius, height) {

@@ -267,6 +267,16 @@ export class Player {
       if (!e.repeat) { if (e.code === 'KeyA') this._tapA = now; else this._tapD = now; }
     }
     if (e.code === 'KeyC' && !e.repeat) this.dodge('back');
+    // JUMP: Space → upward impulse when grounded
+    if (e.code === 'Space' && !e.repeat) this.tryJump();
+  }
+
+  tryJump() {
+    if (this.dead || this.game.state !== 'run' || this.game.paused) return;
+    if (this._wasGrounded && this.vy <= 0.01) {
+      this.vy = CFG.player.jumpSpeed;
+      this._wasGrounded = false;
+    }
   }
 
   // DODGE: short i-frame burst. dir: 'left' | 'right' | 'back' (default back).

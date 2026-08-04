@@ -7,16 +7,26 @@
 <style>
   html, body { margin:0; padding:0; background:#050508; overflow:hidden; font-family:Georgia,'Times New Roman',serif; color:#d8cdb4; }
   canvas { display:block; }
-  #hud { position:fixed; inset:0; pointer-events:none; display:none; z-index:2; }
-  .bar { position:absolute; left:24px; width:280px; background:#141419; border:1px solid #5a4a35; }
-  .bar > .fill { height:100%; width:100%; transition:width .08s linear; }
-  #hpbar { bottom:64px; height:14px; } #hpbar .fill { background:linear-gradient(#a01616,#6e0d0d); }
-  #stbar { bottom:44px; height:9px; }  #stbar .fill { background:linear-gradient(#3f7a3a,#2a5227); }
-  #weapon-name { position:absolute; left:24px; bottom:90px; font-size:14px; letter-spacing:1px; color:#c9b577; text-shadow:0 0 4px #000; }
-  #slots { position:absolute; left:24px; bottom:110px; font-size:12px; color:#8d8266; text-shadow:0 0 4px #000; }
-  #gold { position:absolute; right:24px; bottom:44px; font-size:17px; color:#e8c85a; text-shadow:0 0 6px #000; }
-  #gate-status { position:absolute; right:24px; bottom:70px; font-size:14px; letter-spacing:1px; text-shadow:0 0 6px #000; }
-  #crosshair { position:absolute; left:50%; top:50%; width:6px; height:6px; margin:-3px; border-radius:50%; background:rgba(216,205,180,.65); box-shadow:0 0 4px #000; transition:transform .12s ease-out, background .12s ease-out; }
+  #hud { position:fixed; inset:0; pointer-events:none; display:none; z-index:2; font-family:Georgia,'Times New Roman',serif; }
+  /* ---- health / stamina bars: visible dark-fantasy framing ---- */
+  .statbar { position:absolute; left:26px; width:320px; height:38px; }
+  .statbar .frame { position:absolute; inset:0; z-index:3; pointer-events:none;
+    background:#0c0a10 url('./assets/hud/DarkFantasy/SPR_DarkFantasy_Bar_01_Bottom.png') center/100% 100% no-repeat;
+    border:2px solid #6a5230; border-radius:4px; box-shadow:0 0 8px #000, inset 0 0 12px rgba(0,0,0,.6); }
+  .statbar .track { position:absolute; left:30px; right:30px; top:8px; bottom:8px; background:rgba(0,0,0,.6); border-radius:2px; overflow:hidden; z-index:1; }
+  .statbar .fill { height:100%; width:100%; transition:width .09s linear; }
+  #hpbar { bottom:28px; }
+  #hpbar .fill { background:linear-gradient(#e23b38,#7a0f0f); box-shadow:inset 0 0 6px rgba(255,80,60,.7); }
+  #stbar { bottom:70px; height:32px; }
+  #stbar .fill { background:linear-gradient(#5fb84a,#2c5e22); box-shadow:inset 0 0 6px rgba(120,255,120,.6); }
+  #weapon-icon { position:absolute; left:24px; bottom:112px; width:56px; height:56px; z-index:3; }
+  #weapon-icon img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 2px 3px #000); }
+  #weapon-name { position:absolute; left:88px; bottom:126px; font-size:14px; letter-spacing:1px; color:#e8c85a; text-shadow:0 0 5px #000, 0 1px 0 #000; z-index:3; }
+  #slots { position:absolute; left:88px; bottom:108px; font-size:12px; color:#8d8266; text-shadow:0 0 4px #000; z-index:3; }
+  #gold { position:absolute; right:26px; bottom:34px; font-size:18px; color:#e8c85a; text-shadow:0 0 6px #000, 0 1px 0 #000; font-weight:bold; z-index:3; }
+  #gate-status { position:absolute; right:26px; bottom:64px; font-size:14px; letter-spacing:1px; text-shadow:0 0 6px #000, 0 1px 0 #000; z-index:3; }
+  #crosshair { position:absolute; left:50%; top:50%; width:34px; height:34px; margin:-17px; z-index:3; }
+  #crosshair img { width:100%; height:100%; object-fit:contain; }
   #chargering { position:absolute; left:50%; top:50%; width:34px; height:34px; margin:-17px; border-radius:50%; --chg:0; opacity:0; transition:opacity .1s;
     background:conic-gradient(#e8c85a calc(var(--chg) * 360deg), rgba(90,80,60,.22) 0deg);
     -webkit-mask:radial-gradient(circle, transparent 11px, #000 12px);
@@ -95,10 +105,11 @@
 </head>
 <body>
 <div id="hud">
+  <div id="weapon-icon"></div>
   <div id="weapon-name"></div>
   <div id="slots"></div>
-  <div class="bar" id="hpbar"><div class="fill"></div></div>
-  <div class="bar" id="stbar"><div class="fill"></div></div>
+  <div class="statbar" id="stbar"><div class="frame"></div><div class="track"><div class="fill"></div></div></div>
+  <div class="statbar" id="hpbar"><div class="frame"></div><div class="track"><div class="fill"></div></div></div>
   <div id="gate-status"></div>
   <div id="gold"></div>
   <div id="crosshair"></div>

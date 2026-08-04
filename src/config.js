@@ -68,6 +68,7 @@ export const DEFAULTS = {
   },
   player: {
     walk: 4.9, sprint: 8.2, gravity: 20,
+    jumpSpeed: 7.5, stepHeight: 0.6,
     accelWalk: 0.25, accelSprint: 0.32, accelStop: 0.18,
     mouseSens: 0.0022,
     sprintStamina: 12, regenStamina: 16, swingStaminaRegen: 6, blockStaminaDrain: 2,
