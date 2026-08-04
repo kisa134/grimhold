@@ -9,10 +9,7 @@ const BASE = import.meta.env.BASE_URL + 'assets';
 // On GitHub Pages the repo glb is a Git-LFS pointer (not the real file), so for
 // *.github.io we load from the CORS-enabled cloudflared tunnel serving the real
 // 263 MB file. Locally we use the same-origin public/ asset.
-const IS_PROD = typeof location !== 'undefined' && location.hostname.endsWith('github.io');
-export const CASTLE_URL = IS_PROD
-  ? 'https://williams-those-questionnaire-focused.trycloudflare.com/cathedral.glb'
-  : `${BASE}/castle/cathedral.glb`;
+export const CASTLE_URL = `${import.meta.env.BASE_URL}assets/castle/cathedral.glb`;
 
 // Build a level-compatible object from a loaded glb scene.
 // Returns: { root, colliders, floors, floorHeightAt, raycastWall, gate, training,
